@@ -1,0 +1,1 @@
+/Users/julia/Documents/git/tokonami-lending-nft-collateral/contract/target/debug/libcontract.rlib: /Users/julia/Documents/git/tokonami-lending-nft-collateral/contract/src/lending_nft_collateral/mod.rs /Users/julia/Documents/git/tokonami-lending-nft-collateral/contract/src/lib.rs
