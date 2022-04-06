@@ -1,6 +1,7 @@
 use near_sdk::json_types::U128;
 use near_sdk::AccountId;
 use near_sdk::PromiseOrValue;
+use near_sdk::collections::{LazyOption, Vector};
 
 pub type TokenId = String;
 
@@ -14,12 +15,16 @@ pub trait NftLending {
 
     fn get_user_receipts(&self, account_id: AccountId) -> Vec<U128>;
 
+    fn call_note(&mut self, note_id: TokenId) -> Option<U128>;
+
+    fn pay_receipt(&mut self, receipt_id: TokenId) -> Option<U128>;
+
     //marketplace functions
     fn post_loan_offer(&mut self, nft_collection_id: AccountId, value_offered: U128) -> Option<U128>;
 
     fn loan_offer_at_market_rate(&mut self, nft_collection_id: AccountId) -> Option<U128>;
 
-    fn loan_offer_to_specific_request(&mut self, nft_collection_id: AccountId, offer_id: U128) -> Option<U128>;
+    fn loan_offer_to_specific_request(&mut self, nft_collection_id: AccountId, offer_id: TokenId) -> Option<U128>;
 
     fn post_borrow_offer(&mut self, nft_collection_id: AccountId, value_offered: U128, collateral_nft: TokenId) -> Option<U128>;
 
@@ -37,7 +42,7 @@ pub trait NftLending {
 
     fn remove_collection(&mut self, nft_collection_id: AccountId, apy_rate: U128) -> bool;
 
-    fn alter_colletction(&mut self, nft_collection_id: AccountId, apy_rate: U128) -> bool;
+    fn alter_collection(&mut self, nft_collection_id: AccountId, apy_rate: U128) -> bool;
 
     fn retrieve_funds(&mut self) -> bool;
 
