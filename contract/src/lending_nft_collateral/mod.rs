@@ -1,1 +1,1 @@
-pub mod lending_nft_collateral-impl;
+pub mod lending_nft_collateral;

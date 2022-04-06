@@ -1,19 +1,19 @@
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
-use near_sdk::{env, near_bindgen, AccountId};
-use near_sdk::collections::{LookupMap, UnorderedMap, Vector};
+use near_sdk::{near_bindgen, AccountId};
+use near_sdk::collections::{LookupMap, UnorderedMap, UnorderedSet, TreeMap, LazyOption};
 use near_sdk::json_types::U128;
 
-use crate::lending_nft_collateral::lending_nft_collateral::NftLending
+use crate::lending_nft_collateral::NftLending;
 
+pub type TokenId = String;
 
-near_sdk::setup_alloc!();
-
-
+#[derive(Default, BorshDeserialize, BorshSerialize)]
 pub struct Offer {
   pub owner: AccountId,
   pub value: LazyOption<U128>
 }
 
+#[derive(Default, BorshDeserialize, BorshSerialize)]
 pub struct Loan{
   pub note_id: TokenId,
   pub receipt_id: TokenId
@@ -31,7 +31,7 @@ pub struct LendingNftCollateral{
   pub notes_per_owner: Option<LookupMap<AccountId, UnorderedSet<TokenId>>>,
   pub receipts_per_owner: Option<LookupMap<AccountId, UnorderedSet<TokenId>>>,
   pub notes_per_nft: LookupMap<AccountId, UnorderedMap<TokenId, Loan>>,
-  
+
   pub borrow_offers: LookupMap<AccountId, UnorderedMap<TokenId, Offer>>,
   pub lending_offers: LookupMap<AccountId, UnorderedMap<U128, Offer>>,
 
