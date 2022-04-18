@@ -8,17 +8,14 @@ pub trait NftLending {
     //think about the offer's IDs, ideally we'd need something
     //unique that cannot overflow (ideia hash of account plus sequential number)
 
-    //notes and receipts read functions
-    fn get_user_notes(&self, account_id: AccountId) -> Vec<U128>;
-
-    fn get_user_receipts(&self, account_id: AccountId) -> Vec<U128>;
+    fn nft_on_transfer(&mut self, sender_id: String, previous_owner_id: String, msg: String) -> bool;
 
     fn call_note(&mut self, note_id: TokenId) -> Option<U128>;
 
     fn pay_receipt(&mut self, receipt_id: TokenId) -> Option<U128>;
 
     //marketplace functions
-    fn post_loan_offer(&mut self, nft_collection_id: AccountId, value_offered: U128) -> Option<U128>;
+    fn post_lending_offer(&mut self, nft_collection_id: AccountId, value_offered: U128) -> Option<U128>;
 
     fn loan_offer_at_market_rate(&mut self, nft_collection_id: AccountId) -> Option<U128>;
 
