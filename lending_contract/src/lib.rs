@@ -62,14 +62,16 @@ impl LendingNftCollateral{
     let best_borrowing_offer_value = borrowing_vec.get(borrowing_vec.len() - 1).unwrap();
     lending_offer_value.0 >= best_borrowing_offer_value.value
   }
- 
-  fn post_lending_offer(&mut self, nft_collection_id: NftCollection, value_offered: U128) -> bool {
-    let mut offer_map = self.lending_offers.get(&nft_collection_id).expect("NftCollection invalid");
-    let offer_id = self.current_lending_offer_id.get(&nft_collection_id).unwrap_or(0);
-    let offer = Offer{offer_id: offer_id.to_string(), owner_id: env::predecessor_account_id(), value: value_offered.0};
-    offer_map.insert(&offer_id.to_string(), &offer);
-    self.current_lending_offer_id.insert(&nft_collection_id, &(offer_id + 1));
 
+  fn get_specific_lending_offer(&mut self, nft_collection_id: NftCollection, token_id: String):
+    let nft_collection_lending_offers = self.borrowing_offers.get(&nft_collection_id);
+    nft_collection_lending_offers.get(&offer_id)
+
+  fn get_specific_borrowing_offer(&mut self, nft_collection_id: NftCollection, token_id: TokenId):
+    let nft_collection_borrowing_offers = self.borrowing_offers.get(&nft_collection_id);
+    nft_collection_borrowing_offers.get(&token_id)
+
+  fn get_lending_offers_vec_from_nft_collection(&mut self, nft_collection_id: NftCollection) -> Vector<Offer> {
     let mut lending_offers_vec = match self.lending_offers_vecs.get(&nft_collection_id) {
       Some(value) => value,
       None => {
@@ -80,6 +82,38 @@ impl LendingNftCollateral{
         new_vec
       }
     };
+    lending_offers_vec
+  }
+
+  fn sort_order_lending_offer_vec(&mut self, lending_offers_vec: Vector<Offer> , new_offer: Offer) -> Vector<Offer> {
+    let mut append_vec = Vec::new();
+    let mut counter = if lending_offers_vec.len() == 0 {lending_offers_vec.len()} else {lending_offers_vec.len() - 1};
+    loop {
+      match lending_offers_vec.get(counter) {
+        Some(offer) => {
+          if offer.value >= new_offer.value_offered.0 {
+            append_vec.push(lending_offers_vec.pop().unwrap());
+            counter = counter - 1;
+          } else {
+            lending_offers_vec.push(&new_offer);
+            break
+          }
+        },
+        None => {
+          lending_offers_vec.push(&new_offer);
+          break
+        }
+      };
+    }
+    let mut reverse_vec = append_vec;
+    reverse_vec.reverse();
+    lending_offers_vec.extend(reverse_vec.into_iter());
+  }
+ 
+  fn post_lending_offer(&mut self, nft_collection_id: NftCollection, value_offered: U128) -> bool {
+    let offer_id = self.current_lending_offer_id.get(&nft_collection_id).unwrap_or(0);
+    let offer = Offer{offer_id: offer_id.to_string(), owner_id: env::predecessor_account_id(), value: value_offered.0};
+    let mut lending_offers_vec = self.get_lending_offers_vec_from_nft_collection(nft_collection_id);
     let mut append_vec = Vec::new();
     let mut counter = if lending_offers_vec.len() == 0 {lending_offers_vec.len()} else {lending_offers_vec.len() - 1};
     loop {
@@ -103,7 +137,9 @@ impl LendingNftCollateral{
     reverse_vec.reverse();
     lending_offers_vec.extend(reverse_vec.into_iter());
     true
+    // }
   }
+
   
   fn post_borrowing_offer(&mut self, nft_collection_id: NftCollection, value_offered: U128, collateral_nft: TokenId) -> bool {
     let mut offer_map = self.borrowing_offers.get(&nft_collection_id).expect("NftCollection invalid");
@@ -155,6 +191,9 @@ mod tests {
 
   use super::*;
 
+  const MINT_STORAGE_COST: u128 = 5920000000000000000000;
+
+
   fn get_context(predecessor_account_id: ValidAccountId) -> VMContextBuilder {
       let mut builder = VMContextBuilder::new();
       builder
@@ -164,14 +203,40 @@ mod tests {
       builder
   }
 
-  // #[test]
-  // fn test_new() {
-  //     let mut context = get_context(accounts(1));
-  //     testing_env!(context.build());
-  //     let contract = LendingNftCollateral::new(accounts(1).into());
-  //     testing_env!(context.is_view(true).build());
-  //     assert_eq!(contract.nft_token("1".to_string()), None);
-  // }
+  #[test]
+  fn test_new() {
+      let mut context = get_context(accounts(1));
+      testing_env!(context.build());
+      let contract = LendingNftCollateral::new(accounts(1).into());
+      testing_env!(context.is_view(true).build());
+      assert_eq!(contract.owner_id, accounts(1).into());
+  }
+
+  #[test]
+  fn test_get_lending_offers_vec_from_nft_collection() {
+    let mut context = get_context(accounts(1));
+    testing_env!(context.build());
+    let mut contract = LendingNftCollateral::new(accounts(1).into());
+
+    testing_env!(context
+      .storage_usage(env::storage_usage())
+      .attached_deposit(MINT_STORAGE_COST)
+      .predecessor_account_id(accounts(0))
+      .build());
+
+    let nft_collection_id = "nft_collection_test".to_string();
+    let cloned_nft_collection_id = nft_collection_id.clone();
+    let mut lending_offers_empty_vec = contract.get_lending_offers_vec_from_nft_collection(cloned_nft_collection_id);
+
+    let offer = Offer{offer_id: "offer_id_test".to_string(), owner_id: accounts(1).into(), value: 10};
+    lending_offers_empty_vec.push(&offer);
+    contract.lending_offers_vecs.insert(&nft_collection_id, &lending_offers_empty_vec);
+    assert_eq!(contract.lending_offers_vecs.get(&nft_collection_id).unwrap().get(0).unwrap().offer_id, "offer_id_test");
+    assert_eq!(contract.lending_offers_vecs.get(&nft_collection_id).unwrap().get(0).unwrap().owner_id, accounts(1).to_string());
+  }
+
+  //TESTAR A ORDENAÇÃO
+
 }
 
 
