@@ -26,6 +26,7 @@ use near_sdk::json_types::ValidAccountId;
 use near_sdk::{
     env, near_bindgen, AccountId, BorshStorageKey, PanicOnDefault, Promise, PromiseOrValue,
 };
+use near_contract_standards::non_fungible_token::events::{NftBurn};
 
 #[near_bindgen]
 #[derive(BorshDeserialize, BorshSerialize, PanicOnDefault)]
@@ -47,8 +48,7 @@ enum StorageKey {
 
 #[near_bindgen]
 impl Contract {
-    /// Initializes the contract owned by `owner_id` with
-    /// default metadata (for example purposes only).
+
     #[init]
     pub fn new_default_meta(owner_id: ValidAccountId) -> Self {
         Self::new(
@@ -89,6 +89,24 @@ impl Contract {
     ///
     /// `self.tokens.mint` will enforce `predecessor_account_id` to equal the `owner_id` given in
     /// initialization call to `new`.
+    #[payable]
+    pub fn nft_burn(
+        &mut self,
+        token_id: TokenId,
+        owner_id: ValidAccountId,
+    ) -> bool{
+        assert!(env::predecessor_account_id() == self.tokens.owner_id, "Only predecessor account id can burn");
+        self.tokens.owner_by_id.remove(&token_id);
+        self.tokens.token_metadata_by_id.remove(&token_id);
+        self.tokens.tokens_per_owner.get(&owner_id).remove(&token_id);
+        self.tokens.approvals_by_id.remove(&token_id);
+        self.tokens.next_approval_id_by_id.remove(&token_id);
+        self.tokens.royalties_by_id.remove(&token_id);
+
+        NftBurn { owner_id: &owner, token_ids: &[&token_id], memo: None, authorized_id: None }.emit();
+        true
+    }
+
     #[payable]
     pub fn nft_mint(
         &mut self,

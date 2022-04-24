@@ -1,6 +1,7 @@
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
-use near_sdk::json_types::Base64VecU8;
+use near_sdk::json_types::{Base64VecU8, ValidAccountId};
 use near_sdk::serde::{Deserialize, Serialize};
+use near_sdk::AccountId;
 
 /// This spec can be treated like a version of the standard.
 pub const NFT_METADATA_SPEC: &str = "nft-1.0.0";
@@ -36,12 +37,10 @@ pub struct TokenMetadata {
     pub reference_hash: Option<Base64VecU8>, // Base64-encoded sha256 hash of JSON from reference field. Required if `reference` is included.
 
     // loan metadata
-    pub loan_id: Option<u128>,
     pub loan_value: Option<u128>,
     pub loan_expiration_time: Option<u128>,
-    pub warranty_collection: Option<String>,
+    pub warranty_collection: Option<AccountId>,
     pub warranty_token_id: Option<String>
-
 }
 
 /// Offers details on the contract-level metadata.

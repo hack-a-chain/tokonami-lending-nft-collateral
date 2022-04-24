@@ -42,6 +42,22 @@ pub fn refund_deposit(storage_used: u64) {
     }
 }
 
+pub fn refund_deposit_mint(storage_used: u64, mint_cost: u128) {
+    let required_cost = env::storage_byte_cost() * Balance::from(storage_used);
+    let attached_deposit = env::attached_deposit();
+
+    assert!(
+        required_cost + mint_cost <= attached_deposit,
+        "Must attach {} yoctoNEAR to cover storage and mint cost",
+        required_cost + mint_cost,
+    );
+
+    let refund = attached_deposit - mint_cost - required_cost;
+    if refund > 1 {
+        Promise::new(env::predecessor_account_id()).transfer(refund);
+    }
+}
+
 pub fn hash_account_id(account_id: &AccountId) -> CryptoHash {
     let mut hash = CryptoHash::default();
     hash.copy_from_slice(&env::sha256(account_id.as_bytes()));

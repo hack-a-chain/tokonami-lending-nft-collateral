@@ -17,8 +17,11 @@ mod token;
 pub use self::token::{Token, TokenId};
 
 /// NFT utility functions
-mod utils;
+pub mod utils;
 pub use utils::*;
 
 pub use self::core::NonFungibleToken;
 pub use macros::*;
+
+pub mod events;
+pub mod royalty;

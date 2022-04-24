@@ -113,4 +113,5 @@ pub trait NonFungibleTokenCore {
         token_owner_id: ValidAccountId,
         token_metadata: Option<TokenMetadata>,
     ) -> Token;
+
 }

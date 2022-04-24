@@ -14,4 +14,5 @@ pub struct Token {
     pub owner_id: AccountId,
     pub metadata: Option<TokenMetadata>,
     pub approved_account_ids: Option<HashMap<AccountId, u64>>,
+    pub royalty: Option<HashMap<AccountId, u128>>
 }
