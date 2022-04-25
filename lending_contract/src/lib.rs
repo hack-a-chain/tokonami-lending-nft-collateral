@@ -535,22 +535,123 @@ mod tests {
 
   #[test]
   fn test_get_best_lending_offer() {
+    let mut context = get_context(accounts(1));
+    testing_env!(context.build());
+    let mut contract = LendingNftCollateral::new(accounts(1).into());
 
+    testing_env!(context
+      .storage_usage(env::storage_usage())
+      .attached_deposit(MINT_STORAGE_COST)
+      .predecessor_account_id(accounts(0))
+      .build());
+
+    let nft_collection_id = "nft_collection_test".to_string();
+    let cloned_nft_collection_id = nft_collection_id.clone();
+    let mut vector_id = nft_collection_id.clone();
+    vector_id.push_str("lending");
+    let mut new_vec = Vector::new(vector_id.into_bytes().to_vec());
+    let lending_offer1 = Offer{offer_id: "offer_id_test1".to_string(), owner_id: accounts(1).into(), value: 10, token_id: None};
+    let lending_offer2 = Offer{offer_id: "offer_id_test2".to_string(), owner_id: accounts(1).into(), value: 20, token_id: None};
+    new_vec.push(&lending_offer1);
+    new_vec.push(&lending_offer2);
+    contract.lending_offers_vecs.insert(&nft_collection_id, &new_vec);
+    let best_offer = contract.get_best_lending_offer(cloned_nft_collection_id);
+    assert_eq!(best_offer.value, 20);
+    assert_eq!(best_offer.offer_id, "offer_id_test2".to_string());
   }
 
   #[test]
   fn test_get_best_borrowing_offer() {
-    
+    let mut context = get_context(accounts(1));
+    testing_env!(context.build());
+    let mut contract = LendingNftCollateral::new(accounts(1).into());
+
+    testing_env!(context
+      .storage_usage(env::storage_usage())
+      .attached_deposit(MINT_STORAGE_COST)
+      .predecessor_account_id(accounts(0))
+      .build());
+
+    let nft_collection_id = "nft_collection_test".to_string();
+    let cloned_nft_collection_id = nft_collection_id.clone();
+    let mut vector_id = nft_collection_id.clone();
+    vector_id.push_str("borrowing");
+    let mut new_vec = Vector::new(vector_id.into_bytes().to_vec());
+    let borrowing_offer1 = Offer{offer_id: "offer_id_test1".to_string(), owner_id: accounts(1).into(), value: 20, token_id: Some("token_id_test1".to_string())};
+    let borrowing_offer2 = Offer{offer_id: "offer_id_test2".to_string(), owner_id: accounts(1).into(), value: 10, token_id: Some("token_id_test2".to_string())};
+    new_vec.push(&borrowing_offer1);
+    new_vec.push(&borrowing_offer2);
+    contract.borrowing_offers_vecs.insert(&nft_collection_id, &new_vec);
+    let best_offer = contract.get_best_borrowing_offer(cloned_nft_collection_id);
+    assert_eq!(best_offer.value, 10);
+    assert_eq!(best_offer.offer_id, "offer_id_test2".to_string());
+    assert_eq!(best_offer.token_id.unwrap(), "token_id_test2".to_string());
   }
 
   #[test]
   fn test_evaluate_lending_offer_possible_match() {
-    
+    let mut context = get_context(accounts(1));
+    testing_env!(context.build());
+    let mut contract = LendingNftCollateral::new(accounts(1).into());
+
+    testing_env!(context
+      .storage_usage(env::storage_usage())
+      .attached_deposit(MINT_STORAGE_COST)
+      .predecessor_account_id(accounts(0))
+      .build());
+
+    let nft_collection_id = "nft_collection_test".to_string();
+    let cloned_nft_collection_id = nft_collection_id.clone();
+    let mut vector_id = nft_collection_id.clone();
+    vector_id.push_str("borrowing");
+    let mut new_vec = Vector::new(vector_id.into_bytes().to_vec());
+    let borrowing_offer1 = Offer{offer_id: "offer_id_test1".to_string(), owner_id: accounts(1).into(), value: 20, token_id: Some("token_id_test1".to_string())};
+    let borrowing_offer2 = Offer{offer_id: "offer_id_test2".to_string(), owner_id: accounts(1).into(), value: 10, token_id: Some("token_id_test2".to_string())};
+    new_vec.push(&borrowing_offer1);
+    new_vec.push(&borrowing_offer2);
+    contract.borrowing_offers_vecs.insert(&nft_collection_id, &new_vec);
+
+    let lending_offer1 = Offer{offer_id: "offer_id_test1".to_string(), owner_id: accounts(1).into(), value: 10, token_id: None};
+
+    let result_true = contract.evaluate_lending_offer_possible_match(&cloned_nft_collection_id, U128(10));
+    let result_true2 = contract.evaluate_lending_offer_possible_match(&cloned_nft_collection_id, U128(15));
+    let result_false = contract.evaluate_lending_offer_possible_match(&cloned_nft_collection_id, U128(5));
+    assert_eq!(result_true, true);
+    assert_eq!(result_true2, true);
+    assert_eq!(result_false, false);
   }
 
   #[test]
   fn test_evaluate_borrowing_offer_possible_match() {
-    
+    let mut context = get_context(accounts(1));
+    testing_env!(context.build());
+    let mut contract = LendingNftCollateral::new(accounts(1).into());
+
+    testing_env!(context
+      .storage_usage(env::storage_usage())
+      .attached_deposit(MINT_STORAGE_COST)
+      .predecessor_account_id(accounts(0))
+      .build());
+
+    let nft_collection_id = "nft_collection_test".to_string();
+    let cloned_nft_collection_id = nft_collection_id.clone();
+    let mut vector_id = nft_collection_id.clone();
+    vector_id.push_str("lending");
+    let mut new_vec = Vector::new(vector_id.into_bytes().to_vec());
+    let lending_offer1 = Offer{offer_id: "offer_id_test1".to_string(), owner_id: accounts(1).into(), value: 20, token_id: None};
+    let lending_offer2 = Offer{offer_id: "offer_id_test2".to_string(), owner_id: accounts(1).into(), value: 10, token_id: None};
+    new_vec.push(&borrowing_offer1);
+    new_vec.push(&borrowing_offer2);
+    contract.borrowing_offers_vecs.insert(&nft_collection_id, &new_vec);
+
+    let lending_offer1 = Offer{offer_id: "offer_id_test1".to_string(), owner_id: accounts(1).into(), value: 10, token_id: None};
+
+    let result_true = contract.evaluate_lending_offer_possible_match(&cloned_nft_collection_id, U128(10));
+    let result_true2 = contract.evaluate_lending_offer_possible_match(&cloned_nft_collection_id, U128(15));
+    let result_false = contract.evaluate_lending_offer_possible_match(&cloned_nft_collection_id, U128(5));
+    assert_eq!(result_true, true);
+    assert_eq!(result_true2, true);
+    assert_eq!(result_false, false);
   }
 
   #[test]
