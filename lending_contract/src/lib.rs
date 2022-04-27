@@ -129,14 +129,14 @@ impl LendingNftCollateral {
     let best_offer_index = if borrowing_offer_vec.len() == 0 {0} else {borrowing_offer_vec.len() - 1};
     borrowing_offer_vec.get(best_offer_index)
   }
-// mudar pra usar match
+
   fn evaluate_lending_offer_possible_match(&mut self, nft_collection_id: &NftCollection, lending_offer_value: U128) -> bool {
     match self.get_best_borrowing_offer(nft_collection_id.to_string()) {
       Some(offer) => lending_offer_value.0 >= offer.value,
       None => false
     }
   }
-// mudar pra usar match
+
   fn evaluate_borrowing_offer_possible_match(&mut self, nft_collection_id: &NftCollection, borrowing_offer_value: U128) -> bool {
     match self.get_best_lending_offer(nft_collection_id.to_string()) {
       Some(offer) => borrowing_offer_value.0 <= offer.value,
@@ -144,8 +144,7 @@ impl LendingNftCollateral {
     }
   }
 
-  fn reorder_vec_without_specific_offer(&mut self, offers_vec: Vector<Offer> , offer_to_remove: Offer) -> Vector<Offer> {
-    let mut offers_vec = offers_vec;
+  fn reorder_vec_without_specific_offer(&mut self, offers_vec: &mut Vector<Offer> , offer_to_remove: Offer) {
     let mut append_vec = Vec::new();
     let mut counter = 0;
     loop {
@@ -161,32 +160,30 @@ impl LendingNftCollateral {
     let mut reverse_vec = append_vec;
     reverse_vec.reverse();
     offers_vec.extend(reverse_vec.into_iter());
-    offers_vec
   }
 
   fn choose_specific_lending_offer(&mut self, nft_collection_id: NftCollection, offer_id: String, token_id: TokenId) -> bool {
     let nft_collection_lending_offers = self.lending_offers.get(&nft_collection_id);
-    let nft_collection_lending_offer_vec = self.lending_offers_vecs.get(&nft_collection_id);
+    let mut nft_collection_lending_offer_vec = self.lending_offers_vecs.get(&nft_collection_id).unwrap();
     let specific_lending_offer = nft_collection_lending_offers.unwrap().get(&offer_id).unwrap();
     self.post_loan(specific_lending_offer.clone().owner_id, env::predecessor_account_id(), nft_collection_id.clone(), token_id, U128(specific_lending_offer.clone().value));
     // REORDER AND REMOVE FROM VECS
-    // TIRAR ESSE =
-    let ordered_lending_offer_vec = self.reorder_vec_without_specific_offer(nft_collection_lending_offer_vec.unwrap(), specific_lending_offer.clone());
-    self.lending_offers_vecs.insert(&nft_collection_id.clone(), &ordered_lending_offer_vec);
-    // MUDAR TIRAR UNWRAP
-    self.lending_offers.get(&nft_collection_id.clone()).unwrap().remove(&offer_id).unwrap();
+    // MUDAR TIRAR ESSE =
+    self.reorder_vec_without_specific_offer(&mut nft_collection_lending_offer_vec, specific_lending_offer.clone());
+    self.lending_offers_vecs.insert(&nft_collection_id.clone(), &nft_collection_lending_offer_vec);
+    self.lending_offers.get(&nft_collection_id.clone()).unwrap().remove(&offer_id);
     true
   }
 
   fn choose_specific_borrowing_offer(&mut self, nft_collection_id: NftCollection, offer_id: String) -> bool {
     let nft_collection_borrowing_offers = self.borrowing_offers.get(&nft_collection_id);
-    let nft_collection_borrowing_offer_vec = self.borrowing_offers_vecs.get(&nft_collection_id);
+    let mut nft_collection_borrowing_offer_vec = self.borrowing_offers_vecs.get(&nft_collection_id).unwrap();
     let specific_borrowing_offer = nft_collection_borrowing_offers.unwrap().get(&offer_id).unwrap();
-    //MUDAR ESSES CLONES TUDO
     self.post_loan(env::predecessor_account_id(), specific_borrowing_offer.clone().owner_id, nft_collection_id.clone(), specific_borrowing_offer.clone().token_id.unwrap(), U128(specific_borrowing_offer.clone().value));
     // REORDER AND REMOVE FROM VECS
-    let ordered_borrowing_offer_vec = self.reorder_vec_without_specific_offer(nft_collection_borrowing_offer_vec.unwrap(), specific_borrowing_offer.clone());
-    self.borrowing_offers_vecs.insert(&nft_collection_id.clone(), &ordered_borrowing_offer_vec);
+    // MUDAR TIRAR ESSE =
+    self.reorder_vec_without_specific_offer(&mut nft_collection_borrowing_offer_vec, specific_borrowing_offer.clone());
+    self.borrowing_offers_vecs.insert(&nft_collection_id.clone(), &nft_collection_borrowing_offer_vec);
     self.borrowing_offers.get(&nft_collection_id.clone()).unwrap().remove(&offer_id);
     true
   }
@@ -367,7 +364,7 @@ impl LendingNftCollateral {
   }
 
   #[payable]
-  fn pay_loan(&mut self, token_id: TokenId) ->  bool {
+  fn pay_loan(&mut self, token_id: TokenId) ->  Option<bool> {
     let loan = self.loans.get(&token_id).unwrap();
     if env::attached_deposit() == loan.value {
       // get lender note
@@ -384,10 +381,9 @@ impl LendingNftCollateral {
           NO_DEPOSIT,
           BASE_GAS
         ));
-      true
+      Some(true)
     } else {
       panic!("The attached deposit should be equal to the loan value");
-      false
     }
   }
 
@@ -452,7 +448,7 @@ impl LendingNftCollateral {
     msg: String,
   ) -> bool {
     let pay_loan_args: Value = serde_json::from_str(&msg).unwrap();
-    self.pay_loan(pay_loan_args["token_id"].to_string())
+    self.pay_loan(pay_loan_args["token_id"].to_string()).unwrap_or(false)
   }
 
   #[payable]
