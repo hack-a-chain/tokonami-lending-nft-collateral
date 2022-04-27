@@ -118,34 +118,30 @@ impl LendingNftCollateral {
       receipt_address: "some accountid".to_string()
     }
   }
-// mudar pra retornar option
-  fn get_best_lending_offer(&mut self, nft_collection_id: NftCollection) -> Offer 
+  fn get_best_lending_offer(&mut self, nft_collection_id: NftCollection) -> Option<Offer> 
   {
     let lending_offer_vec = self.get_lending_offers_vec_from_nft_collection(nft_collection_id.to_string());
     let best_offer_index = if lending_offer_vec.len() == 0 {0} else {lending_offer_vec.len() - 1};
-    let best_lending_offer = lending_offer_vec.get(best_offer_index).unwrap_or(
-      Offer{offer_id: "empty_offer".to_string(), owner_id: env::predecessor_account_id(), value: 0, token_id: None}
-    );
-    best_lending_offer
+    lending_offer_vec.get(best_offer_index)
   }
-// mudar pra retornar option
-  fn get_best_borrowing_offer(&mut self, nft_collection_id: NftCollection) -> Offer {
+  fn get_best_borrowing_offer(&mut self, nft_collection_id: NftCollection) -> Option<Offer> {
     let borrowing_offer_vec = self.get_borrowing_offers_vec_from_nft_collection(nft_collection_id.to_string());
     let best_offer_index = if borrowing_offer_vec.len() == 0 {0} else {borrowing_offer_vec.len() - 1};
-    let best_borrowing_offer = borrowing_offer_vec.get(best_offer_index).unwrap_or(
-      Offer{offer_id: "empty_offer".to_string(), owner_id: env::predecessor_account_id(), value: u128::MAX, token_id: None}
-    );
-    best_borrowing_offer
+    borrowing_offer_vec.get(best_offer_index)
   }
 // mudar pra usar match
   fn evaluate_lending_offer_possible_match(&mut self, nft_collection_id: &NftCollection, lending_offer_value: U128) -> bool {
-    let best_borrowing_offer = self.get_best_borrowing_offer(nft_collection_id.to_string());
-    lending_offer_value.0 >= best_borrowing_offer.value
+    match self.get_best_borrowing_offer(nft_collection_id.to_string()) {
+      Some(offer) => lending_offer_value.0 >= offer.value,
+      None => false
+    }
   }
 // mudar pra usar match
   fn evaluate_borrowing_offer_possible_match(&mut self, nft_collection_id: &NftCollection, borrowing_offer_value: U128) -> bool {
-    let best_lending_offer = self.get_best_lending_offer(nft_collection_id.to_string());
-    borrowing_offer_value.0 <= best_lending_offer.value
+    match self.get_best_lending_offer(nft_collection_id.to_string()) {
+      Some(offer) => borrowing_offer_value.0 <= offer.value,
+      None => false
+    }
   }
 
   fn reorder_vec_without_specific_offer(&mut self, offers_vec: Vector<Offer> , offer_to_remove: Offer) -> Vector<Offer> {
@@ -288,7 +284,7 @@ impl LendingNftCollateral {
   fn post_loan(&mut self, lender_account_id: AccountId, borrower_account_id: AccountId, warranty_collection: AccountId, warranty_token_id: TokenId, loan_value: U128) -> bool {
     // self.lock_warranty(warranty_collection, warranty_token_id);
     // lock nft
-    // MUDAR: COLOCAR EXPIRATION TIME CERTO
+    // change this later: COLOCAR EXPIRATION TIME CERTO
     let loan = Loan {
       value: loan_value.0,
       expiration_time: None,
@@ -300,6 +296,7 @@ impl LendingNftCollateral {
 
     let token_metadata = TokenMetadata {
       title: Some("Loan".to_string()),
+      // change this later
       description: Some("fwiefjdadger".to_string()),
       media: None,
       media_hash: None,
@@ -322,8 +319,7 @@ impl LendingNftCollateral {
       self.token_id_counter.to_string(),
       lender_account_id,
       token_metadata.clone(),
-      // CHANGE THIS LATER
-      &self.owner_id,
+      &self.note_address,
       NO_DEPOSIT,
       BASE_GAS
     );
@@ -332,7 +328,7 @@ impl LendingNftCollateral {
       self.token_id_counter.to_string(),
       borrower_account_id,
       token_metadata.clone(),
-      &self.owner_id,
+      &self.receipt_address,
       NO_DEPOSIT,
       BASE_GAS
     );
@@ -463,7 +459,7 @@ impl LendingNftCollateral {
   fn post_lending_offer(&mut self, nft_collection_id: AccountId, value_offered: U128) -> bool {
 
     if self.evaluate_lending_offer_possible_match(&nft_collection_id, value_offered) {
-      let best_borrowing_offer = self.get_best_borrowing_offer(nft_collection_id.clone());
+      let best_borrowing_offer = self.get_best_borrowing_offer(nft_collection_id.clone()).unwrap();
       self.post_loan(env::predecessor_account_id(), best_borrowing_offer.owner_id, nft_collection_id.clone(), best_borrowing_offer.token_id.unwrap(), value_offered);
       self.borrowing_offers_vecs.get(&nft_collection_id.clone()).unwrap().pop();
       // lock nft
@@ -483,7 +479,7 @@ impl LendingNftCollateral {
   #[payable]
   fn post_borrowing_offer(&mut self, nft_collection_id: NftCollection, value_offered: U128, collateral_nft: TokenId) -> bool {
     if self.evaluate_borrowing_offer_possible_match(&nft_collection_id, value_offered) {
-      let best_lending_offer = self.get_best_lending_offer(nft_collection_id.clone());
+      let best_lending_offer = self.get_best_lending_offer(nft_collection_id.clone()).unwrap();
       self.post_loan(best_lending_offer.owner_id, env::predecessor_account_id(), nft_collection_id.clone(), collateral_nft, value_offered);
       self.lending_offers_vecs.get(&nft_collection_id.clone()).unwrap().pop();
       // lock nft
@@ -551,7 +547,7 @@ mod tests {
     new_vec.push(&lending_offer1);
     new_vec.push(&lending_offer2);
     contract.lending_offers_vecs.insert(&nft_collection_id, &new_vec);
-    let best_offer = contract.get_best_lending_offer(nft_collection_id.clone());
+    let best_offer = contract.get_best_lending_offer(nft_collection_id.clone()).unwrap();
     assert_eq!(best_offer.value, 20);
     assert_eq!(best_offer.offer_id, "offer_id_test2".to_string());
   }
@@ -577,7 +573,7 @@ mod tests {
     new_vec.push(&borrowing_offer1);
     new_vec.push(&borrowing_offer2);
     contract.borrowing_offers_vecs.insert(&nft_collection_id, &new_vec);
-    let best_offer = contract.get_best_borrowing_offer(nft_collection_id.clone());
+    let best_offer = contract.get_best_borrowing_offer(nft_collection_id.clone()).unwrap();
     assert_eq!(best_offer.value, 10);
     assert_eq!(best_offer.offer_id, "offer_id_test2".to_string());
     assert_eq!(best_offer.token_id.unwrap(), "token_id_test2".to_string());
