@@ -169,37 +169,29 @@ impl LendingNftCollateral {
   }
 
   fn choose_specific_lending_offer(&mut self, nft_collection_id: NftCollection, offer_id: String, token_id: TokenId) -> bool {
-    let cloned_nft_collection_id = nft_collection_id.clone();
     let nft_collection_lending_offers = self.lending_offers.get(&nft_collection_id);
     let nft_collection_lending_offer_vec = self.lending_offers_vecs.get(&nft_collection_id);
     let specific_lending_offer = nft_collection_lending_offers.unwrap().get(&offer_id).unwrap();
-    let cloned_specific_lending_offer = specific_lending_offer.clone();
-    let cloned_nft_collection_id2 = cloned_nft_collection_id.clone();
-    self.post_loan(specific_lending_offer.owner_id, env::predecessor_account_id(), cloned_nft_collection_id, token_id, U128(specific_lending_offer.value));
+    self.post_loan(specific_lending_offer.clone().owner_id, env::predecessor_account_id(), nft_collection_id.clone(), token_id, U128(specific_lending_offer.clone().value));
     // REORDER AND REMOVE FROM VECS
     // TIRAR ESSE =
-    let ordered_lending_offer_vec = self.reorder_vec_without_specific_offer(nft_collection_lending_offer_vec.unwrap(), cloned_specific_lending_offer);
-    let cloned_nft_collection_id3 = cloned_nft_collection_id2.clone();
-    self.lending_offers_vecs.insert(&cloned_nft_collection_id2, &ordered_lending_offer_vec);
+    let ordered_lending_offer_vec = self.reorder_vec_without_specific_offer(nft_collection_lending_offer_vec.unwrap(), specific_lending_offer.clone());
+    self.lending_offers_vecs.insert(&nft_collection_id.clone(), &ordered_lending_offer_vec);
     // MUDAR TIRAR UNWRAP
-    self.lending_offers.get(&cloned_nft_collection_id3).unwrap().remove(&offer_id).unwrap();
+    self.lending_offers.get(&nft_collection_id.clone()).unwrap().remove(&offer_id).unwrap();
     true
   }
 
   fn choose_specific_borrowing_offer(&mut self, nft_collection_id: NftCollection, offer_id: String) -> bool {
-    let cloned_nft_collection_id = nft_collection_id.clone();
     let nft_collection_borrowing_offers = self.borrowing_offers.get(&nft_collection_id);
     let nft_collection_borrowing_offer_vec = self.borrowing_offers_vecs.get(&nft_collection_id);
     let specific_borrowing_offer = nft_collection_borrowing_offers.unwrap().get(&offer_id).unwrap();
     //MUDAR ESSES CLONES TUDO
-    let cloned_specific_borrowing_offer = specific_borrowing_offer.clone();
-    let cloned_nft_collection_id2 = cloned_nft_collection_id.clone();
-    self.post_loan(env::predecessor_account_id(), specific_borrowing_offer.owner_id, cloned_nft_collection_id, specific_borrowing_offer.token_id.unwrap(), U128(specific_borrowing_offer.value));
+    self.post_loan(env::predecessor_account_id(), specific_borrowing_offer.clone().owner_id, nft_collection_id.clone(), specific_borrowing_offer.clone().token_id.unwrap(), U128(specific_borrowing_offer.clone().value));
     // REORDER AND REMOVE FROM VECS
-    let ordered_borrowing_offer_vec = self.reorder_vec_without_specific_offer(nft_collection_borrowing_offer_vec.unwrap(), cloned_specific_borrowing_offer);
-    let cloned_nft_collection_id3 = cloned_nft_collection_id2.clone();
-    self.borrowing_offers_vecs.insert(&cloned_nft_collection_id2, &ordered_borrowing_offer_vec);
-    self.borrowing_offers.get(&cloned_nft_collection_id3).unwrap().remove(&offer_id);
+    let ordered_borrowing_offer_vec = self.reorder_vec_without_specific_offer(nft_collection_borrowing_offer_vec.unwrap(), specific_borrowing_offer.clone());
+    self.borrowing_offers_vecs.insert(&nft_collection_id.clone(), &ordered_borrowing_offer_vec);
+    self.borrowing_offers.get(&nft_collection_id.clone()).unwrap().remove(&offer_id);
     true
   }
 
@@ -296,14 +288,12 @@ impl LendingNftCollateral {
   fn post_loan(&mut self, lender_account_id: AccountId, borrower_account_id: AccountId, warranty_collection: AccountId, warranty_token_id: TokenId, loan_value: U128) -> bool {
     // self.lock_warranty(warranty_collection, warranty_token_id);
     // lock nft
-    let cloned_warranty_collection = warranty_collection.clone();
-    let cloned_warranty_token_id = warranty_token_id.clone();
     // MUDAR: COLOCAR EXPIRATION TIME CERTO
     let loan = Loan {
       value: loan_value.0,
       expiration_time: None,
-      warranty_collection: warranty_collection,
-      warranty_token_id: warranty_token_id,
+      warranty_collection: warranty_collection.clone(),
+      warranty_token_id: warranty_token_id.clone(),
     };
 
     self.loans.insert(&self.token_id_counter.to_string(), &loan);
@@ -323,16 +313,15 @@ impl LendingNftCollateral {
       reference_hash: None,
       loan_value: Some(loan_value.0),
       loan_expiration_time: None,
-      warranty_collection: Some(cloned_warranty_collection),
-      warranty_token_id: Some(cloned_warranty_token_id)
+      warranty_collection: Some(warranty_collection.clone()),
+      warranty_token_id: Some(warranty_token_id.clone())
     };
-    let cloned_token_metadata = token_metadata.clone();
 
     // mint note
     ext_nft_contract::nft_mint(
       self.token_id_counter.to_string(),
       lender_account_id,
-      token_metadata,
+      token_metadata.clone(),
       // CHANGE THIS LATER
       &self.owner_id,
       NO_DEPOSIT,
@@ -342,7 +331,7 @@ impl LendingNftCollateral {
     ext_nft_contract::nft_mint(
       self.token_id_counter.to_string(),
       borrower_account_id,
-      cloned_token_metadata,
+      token_metadata.clone(),
       &self.owner_id,
       NO_DEPOSIT,
       BASE_GAS
@@ -353,9 +342,8 @@ impl LendingNftCollateral {
 
   #[private]
   pub fn callback_pay_loan(&mut self, #[callback] note: Token, loan: Loan) -> bool {
-    let cloned_token_id = note.token_id.clone();
-    let cloned_owner_id = note.owner_id.clone();
-    Promise::new(note.owner_id).transfer(loan.value);
+
+    Promise::new(note.owner_id.clone()).transfer(loan.value);
     // UNLOCK NFT
     ext_nft_contract::nft_transfer(
       env::signer_account_id(), 
@@ -367,14 +355,14 @@ impl LendingNftCollateral {
       BASE_GAS
     );
     ext_nft_contract::nft_burn(
-      note.token_id, 
+      note.token_id.clone(), 
       &self.note_address,
       NO_DEPOSIT,
       BASE_GAS
     );
 
     ext_nft_contract::nft_burn(
-      cloned_token_id, 
+      note.token_id.clone(), 
       &self.receipt_address,
       NO_DEPOSIT,
       BASE_GAS
@@ -409,27 +397,25 @@ impl LendingNftCollateral {
 
   #[private]
   pub fn callback_transfer_warranty(&mut self, #[callback] token: Token, loan: Loan) -> bool {
-    let cloned_token_id = token.token_id.clone();
-    let cloned_owner_id = token.owner_id.clone();
     // UNLOCK NFT
     ext_nft_contract::nft_transfer(
       env::signer_account_id(), 
       loan.warranty_token_id,
       None,
       None,
-      &cloned_owner_id,      
+      &token.owner_id.clone(),      
       NO_DEPOSIT,
       BASE_GAS
     );
     ext_nft_contract::nft_burn(
-      token.token_id, 
+      token.token_id.clone(), 
       &self.note_address,
       NO_DEPOSIT,
       BASE_GAS
     );
 
     ext_nft_contract::nft_burn(
-      cloned_token_id, 
+      token.token_id.clone(), 
       &self.receipt_address,
       NO_DEPOSIT,
       BASE_GAS
@@ -475,46 +461,41 @@ impl LendingNftCollateral {
 
   #[payable]
   fn post_lending_offer(&mut self, nft_collection_id: AccountId, value_offered: U128) -> bool {
-    let cloned_nft_collection_id = nft_collection_id.clone();
-    let cloned_nft_collection_id2 = cloned_nft_collection_id.clone();
+
     if self.evaluate_lending_offer_possible_match(&nft_collection_id, value_offered) {
-      let best_borrowing_offer = self.get_best_borrowing_offer(nft_collection_id);
-      self.post_loan(env::predecessor_account_id(), best_borrowing_offer.owner_id, cloned_nft_collection_id2, best_borrowing_offer.token_id.unwrap(), value_offered);
-      self.borrowing_offers_vecs.get(&cloned_nft_collection_id).unwrap().pop();
+      let best_borrowing_offer = self.get_best_borrowing_offer(nft_collection_id.clone());
+      self.post_loan(env::predecessor_account_id(), best_borrowing_offer.owner_id, nft_collection_id.clone(), best_borrowing_offer.token_id.unwrap(), value_offered);
+      self.borrowing_offers_vecs.get(&nft_collection_id.clone()).unwrap().pop();
       // lock nft
       false
     }
     else {
       let offer_id = self.current_lending_offer_id.get(&nft_collection_id).unwrap_or(0);
       let offer = Offer{offer_id: offer_id.to_string(), owner_id: env::predecessor_account_id(), value: value_offered.0, token_id: None};
-      let cloned_nft_collection_id_2 = cloned_nft_collection_id.clone();
-      let mut lending_offers_vec = self.get_lending_offers_vec_from_nft_collection(cloned_nft_collection_id);
+      let mut lending_offers_vec = self.get_lending_offers_vec_from_nft_collection(nft_collection_id.clone());
       let ordered_lending_offer_vec = self.sort_order_lending_offer_vec(lending_offers_vec, offer);
-      self.lending_offers_vecs.insert(&cloned_nft_collection_id_2, &ordered_lending_offer_vec);
-      self.current_lending_offer_id.insert(&cloned_nft_collection_id_2, &(offer_id + 1));
+      self.lending_offers_vecs.insert(&nft_collection_id.clone(), &ordered_lending_offer_vec);
+      self.current_lending_offer_id.insert(&nft_collection_id.clone(), &(offer_id + 1));
       true
     }
   }
 
   #[payable]
   fn post_borrowing_offer(&mut self, nft_collection_id: NftCollection, value_offered: U128, collateral_nft: TokenId) -> bool {
-    let cloned_nft_collection_id = nft_collection_id.clone();
-    let cloned_nft_collection_id2 = cloned_nft_collection_id.clone();
     if self.evaluate_borrowing_offer_possible_match(&nft_collection_id, value_offered) {
-      let best_lending_offer = self.get_best_lending_offer(nft_collection_id);
-      self.post_loan(best_lending_offer.owner_id, env::predecessor_account_id(), cloned_nft_collection_id2, collateral_nft, value_offered);
-      self.lending_offers_vecs.get(&cloned_nft_collection_id).unwrap().pop();
+      let best_lending_offer = self.get_best_lending_offer(nft_collection_id.clone());
+      self.post_loan(best_lending_offer.owner_id, env::predecessor_account_id(), nft_collection_id.clone(), collateral_nft, value_offered);
+      self.lending_offers_vecs.get(&nft_collection_id.clone()).unwrap().pop();
       // lock nft
       false
     }
     else {
       let offer_id = self.current_borrowing_offer_id.get(&nft_collection_id).unwrap_or(0);
       let offer = Offer{offer_id: offer_id.to_string(), owner_id: env::predecessor_account_id(), value: value_offered.0, token_id: Some(collateral_nft)};
-      let cloned_nft_collection_id_2 = cloned_nft_collection_id.clone();
-      let mut borrowing_offers_vec = self.get_borrowing_offers_vec_from_nft_collection(cloned_nft_collection_id);
+      let mut borrowing_offers_vec = self.get_borrowing_offers_vec_from_nft_collection(nft_collection_id.clone());
       let ordered_borrowing_offer_vec = self.sort_order_lending_offer_vec(borrowing_offers_vec, offer);
-      self.borrowing_offers_vecs.insert(&cloned_nft_collection_id_2, &ordered_borrowing_offer_vec);
-      self.current_borrowing_offer_id.insert(&cloned_nft_collection_id_2, &(offer_id + 1));
+      self.borrowing_offers_vecs.insert(&nft_collection_id.clone(), &ordered_borrowing_offer_vec);
+      self.current_borrowing_offer_id.insert(&nft_collection_id.clone(), &(offer_id + 1));
       true
     }
   }
@@ -562,7 +543,6 @@ mod tests {
       .build());
 
     let nft_collection_id = "nft_collection_test".to_string();
-    let cloned_nft_collection_id = nft_collection_id.clone();
     let mut vector_id = nft_collection_id.clone();
     vector_id.push_str("lending");
     let mut new_vec = Vector::new(vector_id.into_bytes().to_vec());
@@ -571,7 +551,7 @@ mod tests {
     new_vec.push(&lending_offer1);
     new_vec.push(&lending_offer2);
     contract.lending_offers_vecs.insert(&nft_collection_id, &new_vec);
-    let best_offer = contract.get_best_lending_offer(cloned_nft_collection_id);
+    let best_offer = contract.get_best_lending_offer(nft_collection_id.clone());
     assert_eq!(best_offer.value, 20);
     assert_eq!(best_offer.offer_id, "offer_id_test2".to_string());
   }
@@ -589,7 +569,6 @@ mod tests {
       .build());
 
     let nft_collection_id = "nft_collection_test".to_string();
-    let cloned_nft_collection_id = nft_collection_id.clone();
     let mut vector_id = nft_collection_id.clone();
     vector_id.push_str("borrowing");
     let mut new_vec = Vector::new(vector_id.into_bytes().to_vec());
@@ -598,7 +577,7 @@ mod tests {
     new_vec.push(&borrowing_offer1);
     new_vec.push(&borrowing_offer2);
     contract.borrowing_offers_vecs.insert(&nft_collection_id, &new_vec);
-    let best_offer = contract.get_best_borrowing_offer(cloned_nft_collection_id);
+    let best_offer = contract.get_best_borrowing_offer(nft_collection_id.clone());
     assert_eq!(best_offer.value, 10);
     assert_eq!(best_offer.offer_id, "offer_id_test2".to_string());
     assert_eq!(best_offer.token_id.unwrap(), "token_id_test2".to_string());
@@ -617,7 +596,6 @@ mod tests {
       .build());
 
     let nft_collection_id = "nft_collection_test".to_string();
-    let cloned_nft_collection_id = nft_collection_id.clone();
     let mut vector_id = nft_collection_id.clone();
     vector_id.push_str("borrowing");
     let mut new_vec = Vector::new(vector_id.into_bytes().to_vec());
@@ -627,9 +605,9 @@ mod tests {
     new_vec.push(&borrowing_offer2);
     contract.borrowing_offers_vecs.insert(&nft_collection_id, &new_vec);
 
-    let result_true = contract.evaluate_lending_offer_possible_match(&cloned_nft_collection_id, U128(10));
-    let result_true2 = contract.evaluate_lending_offer_possible_match(&cloned_nft_collection_id, U128(15));
-    let result_false = contract.evaluate_lending_offer_possible_match(&cloned_nft_collection_id, U128(5));
+    let result_true = contract.evaluate_lending_offer_possible_match(&nft_collection_id.clone(), U128(10));
+    let result_true2 = contract.evaluate_lending_offer_possible_match(&nft_collection_id.clone(), U128(15));
+    let result_false = contract.evaluate_lending_offer_possible_match(&nft_collection_id.clone(), U128(5));
     assert_eq!(result_true, true);
     assert_eq!(result_true2, true);
     assert_eq!(result_false, false);
@@ -648,7 +626,6 @@ mod tests {
       .build());
 
     let nft_collection_id = "nft_collection_test".to_string();
-    let cloned_nft_collection_id = nft_collection_id.clone();
     let mut vector_id = nft_collection_id.clone();
     vector_id.push_str("lending");
     let mut new_vec = Vector::new(vector_id.into_bytes().to_vec());
@@ -658,9 +635,9 @@ mod tests {
     new_vec.push(&lending_offer2);
     contract.lending_offers_vecs.insert(&nft_collection_id, &new_vec);
 
-    let result_true = contract.evaluate_borrowing_offer_possible_match(&cloned_nft_collection_id, U128(10));
-    let result_false = contract.evaluate_borrowing_offer_possible_match(&cloned_nft_collection_id, U128(15));
-    let result_true2 = contract.evaluate_borrowing_offer_possible_match(&cloned_nft_collection_id, U128(5));
+    let result_true = contract.evaluate_borrowing_offer_possible_match(&nft_collection_id.clone(), U128(10));
+    let result_false = contract.evaluate_borrowing_offer_possible_match(&nft_collection_id.clone(), U128(15));
+    let result_true2 = contract.evaluate_borrowing_offer_possible_match(&nft_collection_id.clone(), U128(5));
     assert_eq!(result_true, true);
     assert_eq!(result_true2, true);
     assert_eq!(result_false, false);
@@ -689,8 +666,7 @@ mod tests {
       .build());
 
     let nft_collection_id = "nft_collection_test".to_string();
-    let cloned_nft_collection_id = nft_collection_id.clone();
-    let mut lending_offers_empty_vec = contract.get_lending_offers_vec_from_nft_collection(cloned_nft_collection_id);
+    let mut lending_offers_empty_vec = contract.get_lending_offers_vec_from_nft_collection(nft_collection_id.clone());
 
     let offer = Offer{offer_id: "offer_id_test".to_string(), owner_id: accounts(1).into(), value: 10, token_id: None};
     lending_offers_empty_vec.push(&offer);
@@ -719,7 +695,6 @@ mod tests {
       .build());
 
       let nft_collection_id = "nft_collection_test".to_string();
-      let cloned_nft_collection_id = nft_collection_id.clone();
       let mut vector_id = nft_collection_id.clone();
       vector_id.push_str("lending");
       let mut new_vec = Vector::new(vector_id.into_bytes().to_vec());
@@ -766,8 +741,7 @@ mod tests {
       .build());
 
       let nft_collection_id = "nft_collection_test".to_string();
-      let cloned_nft_collection_id = nft_collection_id.clone();
-      let success = contract.post_lending_offer(cloned_nft_collection_id, U128(10));
+      let success = contract.post_lending_offer(nft_collection_id.clone(), U128(10));
       assert_eq!(success, true);
       assert_eq!(contract.lending_offers_vecs.get(&nft_collection_id).unwrap().get(0).unwrap().value, 10);
     }
