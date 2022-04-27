@@ -101,9 +101,10 @@ impl Default for LendingNftCollateral {
 impl LendingNftCollateral {
 
   #[init]
-  fn new(owner_id: AccountId) -> Self {
+  fn new(owner_id: AccountId, note_address: AccountId, receipt_address: AccountId) -> Self {
     Self {
       token_id_counter: 0,
+      // change this later: colocar validação no código
       offer_limit: 20,
       owner_id: owner_id,
       borrowing_offers: LookupMap::new(b"borrowing_offers".to_vec()),
@@ -114,8 +115,8 @@ impl LendingNftCollateral {
       borrowing_offers_vecs: LookupMap::new(b"borrowing_offers_vecs".to_vec()),
       loans: LookupMap::new(b"lending_offers_vecs".to_vec()),
       // mudar isso depois
-      note_address: "some accountid".to_string(),
-      receipt_address: "some accountid".to_string()
+      note_address: note_address,
+      receipt_address: receipt_address
     }
   }
   fn get_best_lending_offer(&mut self, nft_collection_id: NftCollection) -> Option<Offer> 
@@ -168,7 +169,6 @@ impl LendingNftCollateral {
     let specific_lending_offer = nft_collection_lending_offers.unwrap().get(&offer_id).unwrap();
     self.post_loan(specific_lending_offer.clone().owner_id, env::predecessor_account_id(), nft_collection_id.clone(), token_id, U128(specific_lending_offer.clone().value));
     // REORDER AND REMOVE FROM VECS
-    // MUDAR TIRAR ESSE =
     self.reorder_vec_without_specific_offer(&mut nft_collection_lending_offer_vec, specific_lending_offer.clone());
     self.lending_offers_vecs.insert(&nft_collection_id.clone(), &nft_collection_lending_offer_vec);
     self.lending_offers.get(&nft_collection_id.clone()).unwrap().remove(&offer_id);
@@ -181,7 +181,6 @@ impl LendingNftCollateral {
     let specific_borrowing_offer = nft_collection_borrowing_offers.unwrap().get(&offer_id).unwrap();
     self.post_loan(env::predecessor_account_id(), specific_borrowing_offer.clone().owner_id, nft_collection_id.clone(), specific_borrowing_offer.clone().token_id.unwrap(), U128(specific_borrowing_offer.clone().value));
     // REORDER AND REMOVE FROM VECS
-    // MUDAR TIRAR ESSE =
     self.reorder_vec_without_specific_offer(&mut nft_collection_borrowing_offer_vec, specific_borrowing_offer.clone());
     self.borrowing_offers_vecs.insert(&nft_collection_id.clone(), &nft_collection_borrowing_offer_vec);
     self.borrowing_offers.get(&nft_collection_id.clone()).unwrap().remove(&offer_id);
@@ -517,7 +516,7 @@ mod tests {
   fn test_new() {
       let mut context = get_context(accounts(1));
       testing_env!(context.build());
-      let contract = LendingNftCollateral::new(accounts(1).into());
+      let mut contract = LendingNftCollateral::new(accounts(1).into(), accounts(2).into(), accounts(3).into());
       testing_env!(context.is_view(true).build());
       assert_eq!(contract.owner_id, accounts(1).to_string());
   }
@@ -526,7 +525,7 @@ mod tests {
   fn test_get_best_lending_offer() {
     let mut context = get_context(accounts(1));
     testing_env!(context.build());
-    let mut contract = LendingNftCollateral::new(accounts(1).into());
+    let mut contract = LendingNftCollateral::new(accounts(1).into(), accounts(2).into(), accounts(3).into());
 
     testing_env!(context
       .storage_usage(env::storage_usage())
@@ -552,7 +551,7 @@ mod tests {
   fn test_get_best_borrowing_offer() {
     let mut context = get_context(accounts(1));
     testing_env!(context.build());
-    let mut contract = LendingNftCollateral::new(accounts(1).into());
+    let mut contract = LendingNftCollateral::new(accounts(1).into(), accounts(2).into(), accounts(3).into());
 
     testing_env!(context
       .storage_usage(env::storage_usage())
@@ -579,7 +578,7 @@ mod tests {
   fn test_evaluate_lending_offer_possible_match() {
     let mut context = get_context(accounts(1));
     testing_env!(context.build());
-    let mut contract = LendingNftCollateral::new(accounts(1).into());
+    let mut contract = LendingNftCollateral::new(accounts(1).into(), accounts(2).into(), accounts(3).into());
 
     testing_env!(context
       .storage_usage(env::storage_usage())
@@ -609,8 +608,8 @@ mod tests {
   fn test_evaluate_borrowing_offer_possible_match() {
     let mut context = get_context(accounts(1));
     testing_env!(context.build());
-    let mut contract = LendingNftCollateral::new(accounts(1).into());
-
+    let mut contract = LendingNftCollateral::new(accounts(1).into(), accounts(2).into(), accounts(3).into());
+            
     testing_env!(context
       .storage_usage(env::storage_usage())
       .attached_deposit(MINT_STORAGE_COST)
@@ -649,8 +648,8 @@ mod tests {
   fn test_get_lending_offers_vec_from_nft_collection() {
     let mut context = get_context(accounts(1));
     testing_env!(context.build());
-    let mut contract = LendingNftCollateral::new(accounts(1).into());
-
+    let mut contract = LendingNftCollateral::new(accounts(1).into(), accounts(2).into(), accounts(3).into());
+            
     testing_env!(context
       .storage_usage(env::storage_usage())
       .attached_deposit(MINT_STORAGE_COST)
@@ -678,8 +677,8 @@ mod tests {
   fn test_sort_order_lending_offer_vec() {
     let mut context = get_context(accounts(1));
     testing_env!(context.build());
-    let mut contract = LendingNftCollateral::new(accounts(1).into());
-
+    let mut contract = LendingNftCollateral::new(accounts(1).into(), accounts(2).into(), accounts(3).into());
+            
     testing_env!(context
       .storage_usage(env::storage_usage())
       .attached_deposit(MINT_STORAGE_COST)
@@ -724,8 +723,8 @@ mod tests {
   fn test_post_lending_offer() {
     let mut context = get_context(accounts(1));
     testing_env!(context.build());
-    let mut contract = LendingNftCollateral::new(accounts(1).into());
-
+    let mut contract = LendingNftCollateral::new(accounts(1).into(), accounts(2).into(), accounts(3).into());
+            
     testing_env!(context
       .storage_usage(env::storage_usage())
       .attached_deposit(MINT_STORAGE_COST)
