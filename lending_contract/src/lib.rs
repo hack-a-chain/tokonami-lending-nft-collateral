@@ -20,6 +20,8 @@ pub type NftCollection = AccountId;
 const NO_DEPOSIT: Balance = 0;
 const BASE_GAS: Gas = 5_000_000_000_000;
 
+pub mod game_interface;
+
 #[ext_contract(ext_self)]
 pub trait ExtSelf {
     fn callback_promise_result() -> bool;
@@ -119,12 +121,14 @@ impl LendingNftCollateral {
       receipt_address: receipt_address
     }
   }
+
   fn get_best_lending_offer(&mut self, nft_collection_id: NftCollection) -> Option<Offer> 
   {
     let lending_offer_vec = self.get_lending_offers_vec_from_nft_collection(nft_collection_id.to_string());
     let best_offer_index = if lending_offer_vec.len() == 0 {0} else {lending_offer_vec.len() - 1};
     lending_offer_vec.get(best_offer_index)
   }
+
   fn get_best_borrowing_offer(&mut self, nft_collection_id: NftCollection) -> Option<Offer> {
     let borrowing_offer_vec = self.get_borrowing_offers_vec_from_nft_collection(nft_collection_id.to_string());
     let best_offer_index = if borrowing_offer_vec.len() == 0 {0} else {borrowing_offer_vec.len() - 1};
@@ -363,7 +367,7 @@ impl LendingNftCollateral {
   }
 
   #[payable]
-  fn pay_loan(&mut self, token_id: TokenId) ->  Option<bool> {
+  fn pay_loan(&mut self, token_id: TokenId) ->  bool {
     let loan = self.loans.get(&token_id).unwrap();
     if env::attached_deposit() == loan.value {
       // get lender note
@@ -380,7 +384,7 @@ impl LendingNftCollateral {
           NO_DEPOSIT,
           BASE_GAS
         ));
-      Some(true)
+      false
     } else {
       panic!("The attached deposit should be equal to the loan value");
     }
@@ -414,6 +418,7 @@ impl LendingNftCollateral {
     true
   }
 
+  //function to call loan
   #[payable]
   fn transfer_warranty(&mut self, token_id: TokenId) -> bool{
     let loan = self.loans.get(&token_id).unwrap();
@@ -435,20 +440,10 @@ impl LendingNftCollateral {
         NO_DEPOSIT,
         BASE_GAS
       ));
-    true
+    false
   }
 
 
-  fn nft_on_transfer(
-    &mut self,
-    sender_id: String,
-    previous_owner_id: String,
-    token_id: String,
-    msg: String,
-  ) -> bool {
-    let pay_loan_args: Value = serde_json::from_str(&msg).unwrap();
-    self.pay_loan(pay_loan_args["token_id"].to_string()).unwrap_or(false)
-  }
 
   #[payable]
   fn post_lending_offer(&mut self, nft_collection_id: AccountId, value_offered: U128) -> bool {
