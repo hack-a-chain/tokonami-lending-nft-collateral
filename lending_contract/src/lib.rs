@@ -11,8 +11,8 @@ use near_contract_standards::non_fungible_token::metadata::TokenMetadata;
 use near_sdk::callback;
 use near_sdk::ext_contract;
 use near_sdk::serde_json::{self, Value};
-use near_sdk::{Balance, Gas, Promise};
-mod lending_contract_interface;
+use near_sdk::{Balance, Gas, Promise, PromiseOrValue};
+
 use std::time::{SystemTime, UNIX_EPOCH};
 // use crate::lending_contract_interface::NftLending;
 
@@ -20,7 +20,8 @@ pub type NftCollection = AccountId;
 const NO_DEPOSIT: Balance = 0;
 const BASE_GAS: Gas = 5_000_000_000_000;
 
-pub mod game_interface;
+mod lending_contract_interface;
+pub mod nft_on_impl;
 
 #[ext_contract(ext_self)]
 pub trait ExtSelf {
