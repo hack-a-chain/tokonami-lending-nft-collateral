@@ -1,0 +1,20 @@
+[package]
+name = "contract"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+near-contract-standards = { path = "../contract_standards" }
+near-sdk = "3.1.0"
+
+[profile.release]
+opt-level = "s"           # Optimize for small code size
+lto = true                # Optimize for small code size
+debug = false             # Do not include debug info
+panic = "abort"           # Terminate process on panic
+overflow-checks = true    # Panic on overflow
