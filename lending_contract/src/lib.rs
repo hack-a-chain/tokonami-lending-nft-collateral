@@ -115,8 +115,8 @@ impl LendingNftCollateral {
       lending_offers_vecs: LookupMap::new(b"lending_offers_vecs".to_vec()),
       borrowing_offers_vecs: LookupMap::new(b"borrowing_offers_vecs".to_vec()),
       loans: LookupMap::new(b"loans".to_vec()),
-      // 1 month in seconds
-      loan_expiration_seconds_limit: 2592000,
+      // 15 days in seconds
+      loan_expiration_seconds_limit: 1296000,
       note_address: note_address,
       receipt_address: receipt_address,
       balances: LookupMap::new(b"balances".to_vec()),
