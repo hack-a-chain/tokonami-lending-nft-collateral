@@ -57,7 +57,7 @@ pub struct Offer {
 #[serde(crate = "near_sdk::serde")]
 pub struct Loan {
   pub value: u128,
-  pub expiration_time: Option<u128>,
+  pub expiration_time: u128,
   pub warranty_collection: AccountId,
   pub warranty_token_id: String
 }
@@ -66,7 +66,8 @@ pub struct Loan {
 #[derive(BorshDeserialize, BorshSerialize)]
 pub struct LendingNftCollateral {
   //define later
-  pub offer_limit: u128,
+  pub lending_offers_quantity_limit: u64,
+  pub borrowing_offers_quantity_limit: u64,
   pub owner_id: AccountId,
   pub lending_offers: LookupMap<NftCollection, LookupMap<String, Offer>>,
   pub borrowing_offers: LookupMap<NftCollection, LookupMap<String, Offer>>,
@@ -82,6 +83,7 @@ pub struct LendingNftCollateral {
 
   pub token_id_counter: u128,
   pub loans: LookupMap<TokenId, Loan>,
+  pub loan_expiration_seconds_limit: u128,
   pub note_address: AccountId,
   pub receipt_address: AccountId,
 
@@ -102,8 +104,9 @@ impl LendingNftCollateral {
   fn new(owner_id: AccountId, note_address: AccountId, receipt_address: AccountId) -> Self {
     Self {
       token_id_counter: 0,
-      // change this later: colocar validação no código
-      offer_limit: 20,
+      // mudar depois: colocar validação no código
+      lending_offers_quantity_limit: 20,
+      borrowing_offers_quantity_limit: 20,
       owner_id: owner_id,
       borrowing_offers: LookupMap::new(b"borrowing_offers".to_vec()),
       lending_offers: LookupMap::new(b"lending_offers".to_vec()),
@@ -112,6 +115,8 @@ impl LendingNftCollateral {
       lending_offers_vecs: LookupMap::new(b"lending_offers_vecs".to_vec()),
       borrowing_offers_vecs: LookupMap::new(b"borrowing_offers_vecs".to_vec()),
       loans: LookupMap::new(b"loans".to_vec()),
+      // 1 month in seconds
+      loan_expiration_seconds_limit: 2592000,
       note_address: note_address,
       receipt_address: receipt_address,
       balances: LookupMap::new(b"balances".to_vec()),
@@ -303,12 +308,9 @@ impl LendingNftCollateral {
   }
 
   fn post_loan(&mut self, lender_account_id: AccountId, borrower_account_id: AccountId, warranty_collection: AccountId, warranty_token_id: TokenId, loan_value: U128) -> bool {
-    // self.lock_warranty(warranty_collection, warranty_token_id);
-    // lock nft
-    // change this later: COLOCAR EXPIRATION TIME CERTO
     let loan = Loan {
       value: loan_value.0,
-      expiration_time: None,
+      expiration_time: env::block_timestamp() as u128 + self.loan_expiration_seconds_limit,
       warranty_collection: warranty_collection.clone(),
       warranty_token_id: warranty_token_id.clone(),
     };
@@ -396,8 +398,7 @@ impl LendingNftCollateral {
   fn transfer_warranty(&mut self, token_id: TokenId, sender_owner_id: AccountId) -> Promise {
     assert!(env::predecessor_account_id() == self.note_address, "Only note contract can call this function");
     let loan = self.loans.get(&token_id).unwrap();
-    // MUDAR COLOCAR VALIDAÇÃO DE TEMPO
-    // if loan.expiration_time >= now
+    assert!(loan.expiration_time >= env::block_timestamp() as u128, "This loan hasn't expired yet");
     ext_nft_contract::nft_transfer(
       env::current_account_id(), 
       loan.warranty_token_id,
@@ -426,6 +427,8 @@ impl LendingNftCollateral {
 
   #[payable]
   fn post_lending_offer(&mut self, nft_collection_id: AccountId, value_offered: U128) -> bool {
+    let mut lending_offers_vec = self.get_lending_offers_vec_from_nft_collection(nft_collection_id.clone());
+    assert!(lending_offers_vec.len() < self.lending_offers_quantity_limit, "There are too many offers already");
 
     if self.evaluate_lending_offer_possible_match(&nft_collection_id, value_offered) {
       let best_borrowing_offer = self.get_best_borrowing_offer(nft_collection_id.clone()).unwrap();
@@ -437,7 +440,6 @@ impl LendingNftCollateral {
     else {
       let offer_id = self.current_lending_offer_id.get(&nft_collection_id).unwrap_or(0);
       let offer = Offer{offer_id: offer_id.to_string(), owner_id: env::predecessor_account_id(), value: value_offered.0, token_id: None};
-      let mut lending_offers_vec = self.get_lending_offers_vec_from_nft_collection(nft_collection_id.clone());
       let ordered_lending_offer_vec = self.sort_order_lending_offer_vec(lending_offers_vec, offer);
       self.lending_offers_vecs.insert(&nft_collection_id.clone(), &ordered_lending_offer_vec);
       self.current_lending_offer_id.insert(&nft_collection_id.clone(), &(offer_id + 1));
@@ -447,6 +449,10 @@ impl LendingNftCollateral {
 
   #[payable]
   fn post_borrowing_offer(&mut self, nft_collection_id: NftCollection, value_offered: U128, collateral_nft: TokenId, nft_owner_id: AccountId) -> bool {
+    let mut borrowing_offers_vec = self.get_borrowing_offers_vec_from_nft_collection(nft_collection_id.clone());
+    assert!(borrowing_offers_vec.len() < self.borrowing_offers_quantity_limit, "There are too many offers already");
+
+    //check if there is a match
     if self.evaluate_borrowing_offer_possible_match(&nft_collection_id, value_offered) {
       let best_lending_offer = self.get_best_lending_offer(nft_collection_id.clone()).unwrap();
       self.post_loan(best_lending_offer.owner_id, nft_owner_id, nft_collection_id.clone(), collateral_nft, value_offered);
@@ -457,7 +463,6 @@ impl LendingNftCollateral {
     else {
       let offer_id = self.current_borrowing_offer_id.get(&nft_collection_id).unwrap_or(0);
       let offer = Offer{offer_id: offer_id.to_string(), owner_id: nft_owner_id, value: value_offered.0, token_id: Some(collateral_nft)};
-      let mut borrowing_offers_vec = self.get_borrowing_offers_vec_from_nft_collection(nft_collection_id.clone());
       let ordered_borrowing_offer_vec = self.sort_order_lending_offer_vec(borrowing_offers_vec, offer);
       self.borrowing_offers_vecs.insert(&nft_collection_id.clone(), &ordered_borrowing_offer_vec);
       self.current_borrowing_offer_id.insert(&nft_collection_id.clone(), &(offer_id + 1));
