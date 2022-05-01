@@ -163,43 +163,35 @@ impl LendingNftCollateral {
     offers_vec.extend(reverse_vec.into_iter());
   }
 
-  fn cancel_specific_lending_offer(&mut self, offer_id: String, nft_collection_id: NftCollection) -> Option<bool> {
+  fn cancel_specific_lending_offer(&mut self, offer_id: String, nft_collection_id: NftCollection) {
     let nft_collection_lending_offers = self.lending_offers.get(&nft_collection_id);
     let mut nft_collection_lending_offer_vec = self.lending_offers_vecs.get(&nft_collection_id).unwrap();
     let specific_lending_offer = nft_collection_lending_offers.unwrap().get(&offer_id).unwrap();
-    if env::predecessor_account_id() == specific_lending_offer.owner_id {
-      // REORDER AND REMOVE FROM VECS
-      self.reorder_vec_without_specific_offer(&mut nft_collection_lending_offer_vec, specific_lending_offer.clone());
-      self.lending_offers.get(&nft_collection_id.clone()).unwrap().remove(&offer_id);
-      Some(true)
-    } else {
-      panic!("You are not the owner of this offer");
-    }
+    assert!(env::predecessor_account_id() == specific_lending_offer.owner_id, "You are not the owner of this offer");
+    // reorder and remove from vecs
+    self.reorder_vec_without_specific_offer(&mut nft_collection_lending_offer_vec, specific_lending_offer.clone());
+    self.lending_offers.get(&nft_collection_id.clone()).unwrap().remove(&offer_id);
   }
 
-  fn cancel_specific_borrowing_offer(&mut self, offer_id: String, nft_collection_id: NftCollection) -> Option<bool> {
+  fn cancel_specific_borrowing_offer(&mut self, offer_id: String, nft_collection_id: NftCollection) -> Promise {
     let nft_collection_borrowing_offers = self.borrowing_offers.get(&nft_collection_id);
     let mut nft_collection_borrowing_offer_vec = self.borrowing_offers_vecs.get(&nft_collection_id).unwrap();
     let specific_borrowing_offer = nft_collection_borrowing_offers.unwrap().get(&offer_id).unwrap();
-    if env::predecessor_account_id() == specific_borrowing_offer.owner_id {
-      // REORDER AND REMOVE FROM VECS
-      self.reorder_vec_without_specific_offer(&mut nft_collection_borrowing_offer_vec, specific_borrowing_offer.clone());
-      self.borrowing_offers.get(&nft_collection_id.clone()).unwrap().remove(&offer_id);
+    assert!(env::predecessor_account_id() == specific_borrowing_offer.owner_id, "You are not the owner of this offer");
+    // REORDER AND REMOVE FROM VECS
+    self.reorder_vec_without_specific_offer(&mut nft_collection_borrowing_offer_vec, specific_borrowing_offer.clone());
+    self.borrowing_offers.get(&nft_collection_id.clone()).unwrap().remove(&offer_id);
       
-      //transfer nft back
-      ext_nft_contract::nft_transfer(
-        env::current_account_id(), 
-        specific_borrowing_offer.token_id.unwrap(),
-        None,
-        None,
-        &specific_borrowing_offer.owner_id,
-        NO_DEPOSIT,
-        BASE_GAS
-      );
-      Some(true)
-    } else {
-      panic!("You are not the owner of this offer");
-    }
+    //transfer nft back
+    ext_nft_contract::nft_transfer(
+      env::current_account_id(), 
+      specific_borrowing_offer.token_id.unwrap(),
+      None,
+      None,
+      &specific_borrowing_offer.owner_id,
+      NO_DEPOSIT,
+      BASE_GAS
+    )
   }
 
   fn choose_specific_lending_offer(&mut self, nft_collection_id: NftCollection, offer_id: String, token_id: TokenId) -> bool {
@@ -366,73 +358,68 @@ impl LendingNftCollateral {
   }
 
   #[payable]
-  fn pay_loan(&mut self, token_id: TokenId, note_owner_id: AccountId) ->  Option<bool> {
+  fn pay_loan(&mut self, token_id: TokenId, note_owner_id: AccountId) -> Promise {
     // only receipt contract can call this function
-    if env::predecessor_account_id() == self.receipt_address {
-      let loan = self.loans.get(&token_id).unwrap();
+    assert!(env::predecessor_account_id() == self.receipt_address, "Only receipt contract can call this function");
+    let loan = self.loans.get(&token_id).unwrap();
+    
+    let borrower_balance = self.balances.get(&env::predecessor_account_id()).unwrap_or(0);
+    assert!(borrower_balance >= loan.value, "You don't have enough credit for this transaction");
+    self.balances.insert(&env::predecessor_account_id(), &(borrower_balance - loan.value));
+    Promise::new(note_owner_id.clone()).transfer(loan.value);
+    ext_nft_contract::nft_transfer(
+      env::current_account_id(), 
+      loan.warranty_token_id,
+      None,
+      None,
+      &loan.warranty_collection,
+      NO_DEPOSIT,
+      BASE_GAS
+    );
+    ext_nft_contract::nft_burn(
+      token_id.clone(), 
+      &self.note_address,
+      NO_DEPOSIT,
+      BASE_GAS
+    );
 
-      Promise::new(note_owner_id.clone()).transfer(loan.value);
-      ext_nft_contract::nft_transfer(
-        env::current_account_id(), 
-        loan.warranty_token_id,
-        None,
-        None,
-        &loan.warranty_collection,
-        NO_DEPOSIT,
-        BASE_GAS
-      );
-      ext_nft_contract::nft_burn(
-        token_id.clone(), 
-        &self.note_address,
-        NO_DEPOSIT,
-        BASE_GAS
-      );
-
-      ext_nft_contract::nft_burn(
-        token_id.clone(), 
-        &self.receipt_address,
-        NO_DEPOSIT,
-        BASE_GAS
-      );
-      Some(true)
-    } else {
-      panic!("Only receipt contract can call this function");
-    }
+    ext_nft_contract::nft_burn(
+      token_id.clone(), 
+      &self.receipt_address,
+      NO_DEPOSIT,
+      BASE_GAS
+    )
   }
 
   //function to call loan
   #[payable]
-  fn transfer_warranty(&mut self, token_id: TokenId, sender_owner_id: AccountId) -> Option<bool> {
-    if env::predecessor_account_id() == self.note_address {
-      let loan = self.loans.get(&token_id).unwrap();
-      // MUDAR COLOCAR VALIDAÇÃO DE TEMPO
-      // if loan.expiration_time >= now
-      ext_nft_contract::nft_transfer(
-        env::current_account_id(), 
-        loan.warranty_token_id,
-        None,
-        None,
-        &sender_owner_id.clone(),      
-        NO_DEPOSIT,
-        BASE_GAS
-      );
-      ext_nft_contract::nft_burn(
-        token_id.clone(), 
-        &self.note_address,
-        NO_DEPOSIT,
-        BASE_GAS
-      );
+  fn transfer_warranty(&mut self, token_id: TokenId, sender_owner_id: AccountId) -> Promise {
+    assert!(env::predecessor_account_id() == self.note_address, "Only note contract can call this function");
+    let loan = self.loans.get(&token_id).unwrap();
+    // MUDAR COLOCAR VALIDAÇÃO DE TEMPO
+    // if loan.expiration_time >= now
+    ext_nft_contract::nft_transfer(
+      env::current_account_id(), 
+      loan.warranty_token_id,
+      None,
+      None,
+      &sender_owner_id.clone(),      
+      NO_DEPOSIT,
+      BASE_GAS
+    );
+    ext_nft_contract::nft_burn(
+      token_id.clone(), 
+      &self.note_address,
+      NO_DEPOSIT,
+      BASE_GAS
+    );
 
-      ext_nft_contract::nft_burn(
-        token_id.clone(), 
-        &self.receipt_address,
-        NO_DEPOSIT,
-        BASE_GAS
-      );
-      Some(true)
-    } else {
-      panic!("Only note contract can call this function");
-    }
+    ext_nft_contract::nft_burn(
+      token_id.clone(), 
+      &self.receipt_address,
+      NO_DEPOSIT,
+      BASE_GAS
+    )
   }
 
 
