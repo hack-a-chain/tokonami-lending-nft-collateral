@@ -23,13 +23,13 @@ impl LendingNftCollateral {
         let parsed_message: Value = serde_json::from_str(&msg).unwrap();
 
         if parsed_message["function"].as_str().unwrap() == "post_borrowing_offer" {
-            self.post_borrowing_offer(env::predecessor_account_id(), U128(parsed_message["args"]["value_offered"].as_str().unwrap().parse().unwrap()), token_id);
+            self.post_borrowing_offer(env::predecessor_account_id(), U128(parsed_message["args"]["value_offered"].as_str().unwrap().parse().unwrap()), token_id, previous_owner_id);
             false
         } else if parsed_message["function"].as_str().unwrap() == "pay_loan" {
-            self.pay_loan(token_id)
+            self.pay_loan(token_id, previous_owner_id).unwrap_or(false)
         } else if parsed_message["function"].as_str().unwrap() == "transfer_warranty" {
             //needs to find a way to receive money
-            self.transfer_warranty(token_id)
+            self.transfer_warranty(token_id, sender_id).unwrap_or(false)
         } else {
             panic!("msg could not be parsed");
         }
