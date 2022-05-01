@@ -29,6 +29,9 @@ impl LendingNftCollateral {
         } else if parsed_message["function"].as_str().unwrap() == "transfer_warranty" {
             //needs to find a way to receive money
             self.transfer_warranty(token_id, sender_id);
+        } else if parsed_message["function"].as_str().unwrap() == "deposit_balance" {
+            //needs to find a way to receive money
+            self.deposit_balance(U128(parsed_message["args"]["value"].as_str().unwrap().parse().unwrap()));
         } else {
             panic!("msg could not be parsed");
         }
