@@ -398,7 +398,7 @@ impl LendingNftCollateral {
   fn transfer_warranty(&mut self, token_id: TokenId, sender_owner_id: AccountId) -> Promise {
     assert!(env::predecessor_account_id() == self.note_address, "Only note contract can call this function");
     let loan = self.loans.get(&token_id).unwrap();
-    assert!(loan.expiration_time >= env::block_timestamp() as u128, "This loan hasn't expired yet");
+    assert!(loan.expiration_time < env::block_timestamp() as u128, "This loan hasn't expired yet");
     ext_nft_contract::nft_transfer(
       env::current_account_id(), 
       loan.warranty_token_id,
