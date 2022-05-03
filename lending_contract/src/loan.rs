@@ -120,30 +120,3 @@ impl LendingNftCollateral {
     )
   }
 }
-
-#[cfg(all(test, not(target_arch = "wasm32")))]
-mod tests {
-  use near_sdk::test_utils::{accounts, VMContextBuilder};
-  use near_sdk::testing_env;
-  use near_sdk::MockedBlockchain;
-
-  use super::*;
-
-  const MINT_STORAGE_COST: u128 = 5920000000000000000000;
-
-
-  fn get_context(predecessor_account_id: ValidAccountId) -> VMContextBuilder {
-      let mut builder = VMContextBuilder::new();
-      builder
-          .current_account_id(accounts(0))
-          .signer_account_id(predecessor_account_id.clone())
-          .predecessor_account_id(predecessor_account_id);
-      builder
-  }
-
-  #[test]
-  fn test_post_loan() {
-
-  }
-  
-}
