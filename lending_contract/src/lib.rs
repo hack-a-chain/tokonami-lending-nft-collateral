@@ -18,6 +18,7 @@ use near_sdk::{Balance, Gas, Promise, PromiseOrValue};
 pub type NftCollection = AccountId;
 const NO_DEPOSIT: Balance = 0;
 const BASE_GAS: Gas = 5_000_000_000_000;
+const SECONDS_IN_YEAR: u128 = 31_536_000;
 
 mod lending_contract_interface;
 pub mod nft_on_impl;
@@ -58,6 +59,7 @@ pub struct Offer {
 #[near_bindgen]
 #[derive(BorshDeserialize, BorshSerialize)]
 pub struct LendingNftCollateral {
+  pub nft_collections_interest: LookupMap<AccountId, u128>
   //define later
   pub lending_offers_quantity_limit: u64,
   pub borrowing_offers_quantity_limit: u64,
@@ -92,7 +94,8 @@ impl Default for LendingNftCollateral {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, BorshDeserialize, BorshSerialize)]
 #[serde(crate = "near_sdk::serde")]
 pub struct Loan {
-  pub value: u128,
+  pub value_before: u128, //before interest
+  pub value_after: u128, //after interest
   pub expiration_time: u128,
   pub warranty_collection: AccountId,
   pub warranty_token_id: String

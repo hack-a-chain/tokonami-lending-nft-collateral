@@ -20,6 +20,25 @@ impl LendingNftCollateral {
     self.balances.insert(&env::predecessor_account_id(), &(current_value - value_to_remove.0));
     Promise::new(env::predecessor_account_id()).transfer(value_to_remove.0);
   }
+
+  let initial_storage = env::storage_usage();
+
+  let final_storage = env::storage_usage();
+
+  pub fn measure_storage(account_id: AccountId, initial_storage, final_storage) {
+
+    if final_storage > initial_storage {
+      let value_to_remove = (final_storage - initial_storage) * env::storage_byte_cost;
+      let current_value = self.get_balance_value(account_id);
+      assert!(value_to_remove.0 <= current_value, "You don't have enough credit to remove");
+      self.balances.insert(&env::predecessor_account_id(), &(current_value - value_to_remove.0));
+    } else {
+      let current_value = self.get_balance_value(account_id);
+      self.balances.insert(&account_id, &( current_value + (initial_storage - final_storage) * env::storage_byte_cost));
+    }
+
+  }
+
 }
 
 #[cfg(all(test, not(target_arch = "wasm32")))]

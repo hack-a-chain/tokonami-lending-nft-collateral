@@ -1,12 +1,12 @@
 use crate::*;
 use serde_json::Value;
 
-#[near_bindgen]
 impl LendingNftCollateral {
 
   pub fn post_loan(&mut self, lender_account_id: AccountId, borrower_account_id: AccountId, warranty_collection: AccountId, warranty_token_id: TokenId, loan_value: U128) -> bool {
     let loan = Loan {
-      value: loan_value.0,
+      value_before: loan_value.0,
+      value_after: loan_value.0 + ( loan_value.0 * juros * (loan_expiration_seconds_limit/SECONDS_IN_YEAR) ),
       expiration_time: env::block_timestamp() as u128 + self.loan_expiration_seconds_limit,
       warranty_collection: warranty_collection.clone(),
       warranty_token_id: warranty_token_id.clone(),
@@ -56,7 +56,6 @@ impl LendingNftCollateral {
     true
   }
 
-  #[payable]
   pub fn pay_loan(&mut self, token_id: TokenId, note_owner_id: AccountId) -> Promise {
     // only receipt contract can call this function
     assert!(env::predecessor_account_id() == self.receipt_address, "Only receipt contract can call this function");
@@ -91,7 +90,6 @@ impl LendingNftCollateral {
   }
 
   //function to call loan
-  #[payable]
   pub fn transfer_warranty_loan(&mut self, token_id: TokenId, sender_owner_id: AccountId) -> Promise {
     assert!(env::predecessor_account_id() == self.note_address, "Only note contract can call this function");
     let loan = self.loans.get(&token_id).unwrap();
