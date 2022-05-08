@@ -14,11 +14,11 @@ impl LendingNftCollateral {
     self.balances.insert(&env::predecessor_account_id(), &(current_value + value_to_deposit.0));
   }
 
-  pub fn remove_balance(&mut self, value_to_remove: U128) {
+  pub fn reduce_balance(&mut self, value_to_reduce: U128) {
     let current_value = self.get_balance_value(env::predecessor_account_id());
-    assert!(value_to_remove.0 <= current_value, "You don't have enough credit to remove");
-    self.balances.insert(&env::predecessor_account_id(), &(current_value - value_to_remove.0));
-    Promise::new(env::predecessor_account_id()).transfer(value_to_remove.0);
+    assert!(value_to_reduce.0 <= current_value, "You don't have enough credit to reduce");
+    self.balances.insert(&env::predecessor_account_id(), &(current_value - value_to_reduce.0));
+    Promise::new(env::predecessor_account_id()).transfer(value_to_reduce.0);
   }
 }
 
@@ -76,7 +76,7 @@ mod tests {
   }
 
   #[test]
-  fn test_remove_balance() {
+  fn test_reduce_balance() {
     let mut context = get_context(accounts(1));
     testing_env!(context.build());
     let mut contract = LendingNftCollateral::new(accounts(1).into(), accounts(2).into(), accounts(3).into());
@@ -88,7 +88,7 @@ mod tests {
       .build());
 
     contract.balances.insert(&accounts(0).into(), &(50));
-    contract.remove_balance(U128(20));
+    contract.reduce_balance(U128(20));
     let result = contract.balances.get(&accounts(0).to_string()).unwrap_or(0);
     assert_eq!(result, 30);
   }

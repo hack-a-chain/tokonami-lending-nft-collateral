@@ -1,13 +1,18 @@
 use crate::*;
 use serde_json::Value;
 
-#[near_bindgen]
+const SECONDS_IN_A_YEAR: u128 = 31_536_000;
+
+
 impl LendingNftCollateral {
 
   pub fn post_loan(&mut self, lender_account_id: AccountId, borrower_account_id: AccountId, warranty_collection: AccountId, warranty_token_id: TokenId, loan_value: U128) -> bool {
+    let nft_collection_taxes = self.get_nft_collection_taxes(warranty_collection.clone());
+    let expiration_time = env::block_timestamp() as u128 + self.loan_expiration_seconds_limit;
     let loan = Loan {
-      value: loan_value.0,
-      expiration_time: env::block_timestamp() as u128 + self.loan_expiration_seconds_limit,
+      value_before: loan_value.0,
+      value_after: loan_value.0 * nft_collection_taxes * (expiration_time / SECONDS_IN_A_YEAR),
+      expiration_time: expiration_time,
       warranty_collection: warranty_collection.clone(),
       warranty_token_id: warranty_token_id.clone(),
     };
@@ -56,16 +61,16 @@ impl LendingNftCollateral {
     true
   }
 
-  #[payable]
-  pub fn pay_loan(&mut self, token_id: TokenId, note_owner_id: AccountId) -> Promise {
+  pub fn pay_loan(&mut self, token_id: TokenId, note_owner_id: AccountId) {
+    let initial_storage = U128(env::storage_usage() as u128);
     // only receipt contract can call this function
     assert!(env::predecessor_account_id() == self.receipt_address, "Only receipt contract can call this function");
     let loan = self.loans.get(&token_id).unwrap();
     
     let borrower_balance = self.balances.get(&env::predecessor_account_id()).unwrap_or(0);
-    assert!(borrower_balance >= loan.value, "You don't have enough credit for this transaction");
-    self.balances.insert(&env::predecessor_account_id(), &(borrower_balance - loan.value));
-    Promise::new(note_owner_id.clone()).transfer(loan.value);
+    assert!(borrower_balance >= loan.value_after, "You don't have enough credit for this transaction");
+    self.balances.insert(&env::predecessor_account_id(), &(borrower_balance - loan.value_after));
+    Promise::new(note_owner_id.clone()).transfer(loan.value_after);
     ext_nft_contract::nft_transfer(
       env::current_account_id(), 
       loan.warranty_token_id,
@@ -87,12 +92,16 @@ impl LendingNftCollateral {
       &self.receipt_address,
       NO_DEPOSIT,
       BASE_GAS
-    )
+    );
+
+    let final_storage = U128(env::storage_usage() as u128);
+    self.set_storage(initial_storage, final_storage);
   }
 
   //function to call loan
-  #[payable]
-  pub fn transfer_warranty_loan(&mut self, token_id: TokenId, sender_owner_id: AccountId) -> Promise {
+  pub fn transfer_warranty_loan(&mut self, token_id: TokenId, sender_owner_id: AccountId) {
+    let initial_storage = U128(env::storage_usage() as u128);
+
     assert!(env::predecessor_account_id() == self.note_address, "Only note contract can call this function");
     let loan = self.loans.get(&token_id).unwrap();
     assert!(loan.expiration_time < env::block_timestamp() as u128, "This loan hasn't expired yet");
@@ -117,6 +126,9 @@ impl LendingNftCollateral {
       &self.receipt_address,
       NO_DEPOSIT,
       BASE_GAS
-    )
+    );
+    
+    let final_storage = U128(env::storage_usage() as u128);
+    self.set_storage(initial_storage, final_storage);
   }
 }

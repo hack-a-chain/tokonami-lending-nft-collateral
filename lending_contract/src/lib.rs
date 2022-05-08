@@ -24,6 +24,7 @@ pub mod nft_on_impl;
 pub mod loan;
 pub mod balance;
 pub mod controller;
+pub mod nft_collections;
 
 #[ext_contract(ext_nft_contract)]
 trait NftContract {
@@ -80,7 +81,8 @@ pub struct LendingNftCollateral {
   pub note_address: AccountId,
   pub receipt_address: AccountId,
 
-  pub balances: LookupMap<AccountId, u128>
+  pub balances: LookupMap<AccountId, u128>,
+  pub nft_collections: LookupMap<AccountId, u128>
 }
 
 impl Default for LendingNftCollateral {
@@ -92,7 +94,8 @@ impl Default for LendingNftCollateral {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, BorshDeserialize, BorshSerialize)]
 #[serde(crate = "near_sdk::serde")]
 pub struct Loan {
-  pub value: u128,
+  pub value_before: u128,
+  pub value_after: u128,
   pub expiration_time: u128,
   pub warranty_collection: AccountId,
   pub warranty_token_id: String
@@ -122,6 +125,7 @@ impl LendingNftCollateral {
       note_address: note_address,
       receipt_address: receipt_address,
       balances: LookupMap::new(b"balances".to_vec()),
+      nft_collections: LookupMap::new(b"nft_collections".to_vec()),
     }
   }
 
@@ -139,6 +143,8 @@ impl LendingNftCollateral {
   }
 
   fn cancel_specific_lending_offer(&mut self, offer_id: String, nft_collection_id: NftCollection) {
+    let initial_storage = U128(env::storage_usage() as u128);
+
     let nft_collection_lending_offers = self.lending_offers.get(&nft_collection_id);
     let mut nft_collection_lending_offer_vec = self.lending_offers_vecs.get(&nft_collection_id).unwrap();
     let specific_lending_offer = nft_collection_lending_offers.unwrap().get(&offer_id).unwrap();
@@ -146,9 +152,14 @@ impl LendingNftCollateral {
     // reorder and remove from vecs
     self.reorder_vec_without_specific_offer(&mut nft_collection_lending_offer_vec, specific_lending_offer.clone());
     self.lending_offers.get(&nft_collection_id.clone()).unwrap().remove(&offer_id);
+
+    let final_storage = U128(env::storage_usage() as u128);
+    self.set_storage(initial_storage, final_storage);
   }
 
-  fn cancel_specific_borrowing_offer(&mut self, offer_id: String, nft_collection_id: NftCollection) -> Promise {
+  fn cancel_specific_borrowing_offer(&mut self, offer_id: String, nft_collection_id: NftCollection) {
+    let initial_storage = U128(env::storage_usage() as u128);
+
     let nft_collection_borrowing_offers = self.borrowing_offers.get(&nft_collection_id);
     let mut nft_collection_borrowing_offer_vec = self.borrowing_offers_vecs.get(&nft_collection_id).unwrap();
     let specific_borrowing_offer = nft_collection_borrowing_offers.unwrap().get(&offer_id).unwrap();
@@ -166,10 +177,15 @@ impl LendingNftCollateral {
       &specific_borrowing_offer.owner_id,
       NO_DEPOSIT,
       BASE_GAS
-    )
+    );
+
+    let final_storage = U128(env::storage_usage() as u128);
+    self.set_storage(initial_storage, final_storage);
   }
 
   fn choose_specific_lending_offer(&mut self, nft_collection_id: NftCollection, offer_id: String, token_id: TokenId) -> bool {
+    let initial_storage = U128(env::storage_usage() as u128);
+
     let nft_collection_lending_offers = self.lending_offers.get(&nft_collection_id);
     let mut nft_collection_lending_offer_vec = self.lending_offers_vecs.get(&nft_collection_id).unwrap();
     let specific_lending_offer = nft_collection_lending_offers.unwrap().get(&offer_id).unwrap();
@@ -177,10 +193,15 @@ impl LendingNftCollateral {
     // REORDER AND REMOVE FROM VECS
     self.reorder_vec_without_specific_offer(&mut nft_collection_lending_offer_vec, specific_lending_offer.clone());
     self.lending_offers.get(&nft_collection_id.clone()).unwrap().remove(&offer_id);
+
+    let final_storage = U128(env::storage_usage() as u128);
+    self.set_storage(initial_storage, final_storage);
     true
   }
 
   fn choose_specific_borrowing_offer(&mut self, nft_collection_id: NftCollection, offer_id: String) -> bool {
+    let initial_storage = U128(env::storage_usage() as u128);
+
     let nft_collection_borrowing_offers = self.borrowing_offers.get(&nft_collection_id);
     let mut nft_collection_borrowing_offer_vec = self.borrowing_offers_vecs.get(&nft_collection_id).unwrap();
     let specific_borrowing_offer = nft_collection_borrowing_offers.unwrap().get(&offer_id).unwrap();
@@ -188,11 +209,17 @@ impl LendingNftCollateral {
     // REORDER AND REMOVE FROM VECS
     self.reorder_vec_without_specific_offer(&mut nft_collection_borrowing_offer_vec, specific_borrowing_offer.clone());
     self.borrowing_offers.get(&nft_collection_id.clone()).unwrap().remove(&offer_id);
+
+    let final_storage = U128(env::storage_usage() as u128);
+    self.set_storage(initial_storage, final_storage);
+
     true
   }
 
   #[payable]
   fn post_lending_offer(&mut self, nft_collection_id: AccountId, value_offered: U128) -> bool {
+    let initial_storage = U128(env::storage_usage() as u128);
+
     let mut lending_offers_vec = self.get_lending_offers_vec_from_nft_collection(nft_collection_id.clone());
     assert!(lending_offers_vec.len() < self.lending_offers_quantity_limit, "There are too many offers already");
 
@@ -200,6 +227,10 @@ impl LendingNftCollateral {
       let best_borrowing_offer = self.get_best_borrowing_offer(nft_collection_id.clone()).unwrap();
       self.post_loan(env::predecessor_account_id(), best_borrowing_offer.owner_id, nft_collection_id.clone(), best_borrowing_offer.token_id.unwrap(), value_offered);
       self.borrowing_offers_vecs.get(&nft_collection_id.clone()).unwrap().pop();
+
+      let final_storage = U128(env::storage_usage() as u128);
+      self.set_storage(initial_storage, final_storage);
+
       false
     }
     else {
@@ -207,16 +238,22 @@ impl LendingNftCollateral {
       let offer = Offer{offer_id: offer_id.to_string(), owner_id: env::predecessor_account_id(), value: value_offered.0, token_id: None};
       let ordered_lending_offer_vec = self.sort_order_lending_offer_vec(lending_offers_vec, offer.clone());
       self.lending_offers_vecs.insert(&nft_collection_id.clone(), &ordered_lending_offer_vec);
-      let mut offer_map = LookupMap::new(b"lending_offer".to_vec());
+      let mut offer_map = self.lending_offers.get(&nft_collection_id.clone()).unwrap();
       offer_map.insert(&offer_id.to_string(), &offer);
       self.lending_offers.insert(&nft_collection_id.clone(), &offer_map);
       self.current_lending_offer_id.insert(&nft_collection_id.clone(), &(offer_id + 1));
+
+      let final_storage = U128(env::storage_usage() as u128);
+      self.set_storage(initial_storage, final_storage);
+
       true
     }
   }
 
   #[payable]
   fn post_borrowing_offer(&mut self, nft_collection_id: NftCollection, value_offered: U128, collateral_nft: TokenId, nft_owner_id: AccountId) -> bool {
+    let initial_storage = U128(env::storage_usage() as u128);
+
     let mut borrowing_offers_vec = self.get_borrowing_offers_vec_from_nft_collection(nft_collection_id.clone());
     assert!(borrowing_offers_vec.len() < self.borrowing_offers_quantity_limit, "There are too many offers already");
 
@@ -225,6 +262,10 @@ impl LendingNftCollateral {
       let best_lending_offer = self.get_best_lending_offer(nft_collection_id.clone()).unwrap();
       self.post_loan(best_lending_offer.owner_id, nft_owner_id, nft_collection_id.clone(), collateral_nft, value_offered);
       self.lending_offers_vecs.get(&nft_collection_id.clone()).unwrap().pop();
+
+      let final_storage = U128(env::storage_usage() as u128);
+      self.set_storage(initial_storage, final_storage);
+
       false
     }
     else {
@@ -232,10 +273,14 @@ impl LendingNftCollateral {
       let offer = Offer{offer_id: offer_id.to_string(), owner_id: nft_owner_id, value: value_offered.0, token_id: Some(collateral_nft)};
       let ordered_borrowing_offer_vec = self.sort_order_lending_offer_vec(borrowing_offers_vec, offer.clone());
       self.borrowing_offers_vecs.insert(&nft_collection_id.clone(), &ordered_borrowing_offer_vec);
-      let mut offer_map = LookupMap::new(b"borrowing_offer".to_vec());
+      let mut offer_map = self.lending_offers.get(&nft_collection_id.clone()).unwrap();
       offer_map.insert(&offer_id.to_string(), &offer);
       self.borrowing_offers.insert(&nft_collection_id.clone(), &offer_map);
       self.current_borrowing_offer_id.insert(&nft_collection_id.clone(), &(offer_id + 1));
+
+      let final_storage = U128(env::storage_usage() as u128);
+      self.set_storage(initial_storage, final_storage);
+
       true
     }
   }
@@ -463,8 +508,9 @@ mod tests {
       .attached_deposit(MINT_STORAGE_COST)
       .predecessor_account_id(accounts(0))
       .build());
-
+    contract.deposit_balance(U128(MINT_STORAGE_COST*10000));
     let nft_collection_id = "nft_collection_test".to_string();
+    contract.insert_new_nft_collection(nft_collection_id.clone(), U128(1));
     let success = contract.post_lending_offer(nft_collection_id.clone(), U128(10));
     assert_eq!(success, true);
     assert_eq!(contract.lending_offers_vecs.get(&nft_collection_id).unwrap().get(0).unwrap().value, 10);
@@ -484,7 +530,9 @@ mod tests {
         .predecessor_account_id(accounts(0))
         .build());
 
+      contract.deposit_balance(U128(MINT_STORAGE_COST*10000));
       let nft_collection_id = "nft_collection_test".to_string();
+      contract.insert_new_nft_collection(nft_collection_id.clone(), U128(1));
       let success = contract.post_borrowing_offer(nft_collection_id.clone(), U128(10), "token_id".to_string(), accounts(0).into());
       assert_eq!(success, true);
       assert_eq!(contract.borrowing_offers_vecs.get(&nft_collection_id).unwrap().get(0).unwrap().value, 10);
