@@ -7,11 +7,11 @@ const SECONDS_IN_A_YEAR: u128 = 31_536_000;
 impl LendingNftCollateral {
 
   pub fn post_loan(&mut self, lender_account_id: AccountId, borrower_account_id: AccountId, warranty_collection: AccountId, warranty_token_id: TokenId, loan_value: U128) -> bool {
-    let nft_collection_taxes = self.get_nft_collection_taxes(warranty_collection.clone());
+    let nft_collection_interest = self.get_nft_collection_interest(warranty_collection.clone());
     let expiration_time = env::block_timestamp() as u128 + self.loan_expiration_seconds_limit;
     let loan = Loan {
       value_before: loan_value.0,
-      value_after: loan_value.0 * nft_collection_taxes * (expiration_time / SECONDS_IN_A_YEAR),
+      value_after: loan_value.0 * nft_collection_interest * (expiration_time / SECONDS_IN_A_YEAR),
       expiration_time: expiration_time,
       warranty_collection: warranty_collection.clone(),
       warranty_token_id: warranty_token_id.clone(),
@@ -127,7 +127,7 @@ impl LendingNftCollateral {
       NO_DEPOSIT,
       BASE_GAS
     );
-    
+
     let final_storage = U128(env::storage_usage() as u128);
     self.set_storage(initial_storage, final_storage);
   }

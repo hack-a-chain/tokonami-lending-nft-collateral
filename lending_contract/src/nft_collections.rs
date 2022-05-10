@@ -4,16 +4,16 @@ use serde_json::Value;
 #[near_bindgen]
 impl LendingNftCollateral {
 
-  pub fn get_nft_collection_taxes(&mut self, nft_collection_id: AccountId) -> u128 {
+  pub fn get_nft_collection_interest(&mut self, nft_collection_id: AccountId) -> u128 {
     self.nft_collections.get(&nft_collection_id).unwrap_or(0)
   }
 
-  pub fn set_nft_collection_taxes(&mut self, nft_collection_id: AccountId, taxes: U128) {
-    self.nft_collections.insert(&nft_collection_id, &taxes.0);
+  pub fn set_nft_collection_interest(&mut self, nft_collection_id: AccountId, interest: U128) {
+    self.nft_collections.insert(&nft_collection_id, &interest.0);
   }
 
-  pub fn insert_new_nft_collection(&mut self, nft_collection_id: AccountId, taxes: U128) {
-    self.set_nft_collection_taxes(nft_collection_id.clone(), taxes);
+  pub fn insert_new_nft_collection(&mut self, nft_collection_id: AccountId, interest: U128) {
+    self.set_nft_collection_interest(nft_collection_id.clone(), interest);
 
     let mut lending_vector_id = nft_collection_id.clone();
     lending_vector_id.push_str("lending");
@@ -57,7 +57,7 @@ mod tests {
   }
 
   #[test]
-  fn test_get_nft_collection_taxes() {
+  fn test_get_nft_collection_interest() {
     let mut context = get_context(accounts(1));
     testing_env!(context.build());
     let mut contract = LendingNftCollateral::new(accounts(1).into(), accounts(2).into(), accounts(3).into());
@@ -69,12 +69,12 @@ mod tests {
       .build());
 
     contract.nft_collections.insert(&accounts(1).into(), &(10));
-    let result = contract.get_nft_collection_taxes(accounts(1).into());
+    let result = contract.get_nft_collection_interest(accounts(1).into());
     assert_eq!(result, 10);
   }
 
   #[test]
-  fn test_set_nft_collection_taxes() {
+  fn test_set_nft_collection_interest() {
     let mut context = get_context(accounts(1));
     testing_env!(context.build());
     let mut contract = LendingNftCollateral::new(accounts(1).into(), accounts(2).into(), accounts(3).into());
@@ -85,7 +85,7 @@ mod tests {
       .predecessor_account_id(accounts(0))
       .build());
 
-    contract.set_nft_collection_taxes(accounts(1).to_string(), U128(20));
+    contract.set_nft_collection_interest(accounts(1).to_string(), U128(20));
     let result = contract.nft_collections.get(&accounts(1).to_string()).unwrap_or(0);
     assert_eq!(result, 20);
   }
