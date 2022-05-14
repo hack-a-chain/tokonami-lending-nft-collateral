@@ -67,10 +67,8 @@ impl LendingNftCollateral {
     assert!(env::predecessor_account_id() == self.receipt_address, "Only receipt contract can call this function");
     let loan = self.loans.get(&token_id).unwrap();
     
-    let borrower_balance = self.balances.get(&env::predecessor_account_id()).unwrap_or(0);
-    assert!(borrower_balance >= loan.value_after, "You don't have enough credit for this transaction");
-    self.balances.insert(&env::predecessor_account_id(), &(borrower_balance - loan.value_after));
-    Promise::new(note_owner_id.clone()).transfer(loan.value_after);
+    self.reduce_and_withdraw_balance(U128(loan.value_after));
+
     ext_nft_contract::nft_transfer(
       env::current_account_id(), 
       loan.warranty_token_id,
