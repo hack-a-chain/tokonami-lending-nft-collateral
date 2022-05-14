@@ -18,6 +18,7 @@ use near_sdk::{Balance, Gas, Promise, PromiseOrValue};
 pub type NftCollection = AccountId;
 const NO_DEPOSIT: Balance = 0;
 const BASE_GAS: Gas = 5_000_000_000_000;
+const MINIMUM_LIMIT_BALANCE: u128 = 100_000_000_000_000_000_000_000;
 
 mod lending_contract_interface;
 pub mod nft_on_impl;
@@ -144,7 +145,7 @@ impl LendingNftCollateral {
 
   fn cancel_specific_lending_offer(&mut self, offer_id: String, nft_collection_id: NftCollection) {
     let initial_storage = U128(env::storage_usage() as u128);
-
+    assert!(self.get_balance_value(env::predecessor_account_id()).0 >= MINIMUM_LIMIT_BALANCE, "You don't have enought balance");
     let nft_collection_lending_offers = self.lending_offers.get(&nft_collection_id);
     let mut nft_collection_lending_offer_vec = self.lending_offers_vecs.get(&nft_collection_id).unwrap();
     let specific_lending_offer = nft_collection_lending_offers.unwrap().get(&offer_id).unwrap();
@@ -159,6 +160,7 @@ impl LendingNftCollateral {
 
   fn cancel_specific_borrowing_offer(&mut self, offer_id: String, nft_collection_id: NftCollection) {
     let initial_storage = U128(env::storage_usage() as u128);
+    assert!(self.get_balance_value(env::predecessor_account_id()).0 >= MINIMUM_LIMIT_BALANCE, "You don't have enought balance");
 
     let nft_collection_borrowing_offers = self.borrowing_offers.get(&nft_collection_id);
     let mut nft_collection_borrowing_offer_vec = self.borrowing_offers_vecs.get(&nft_collection_id).unwrap();
@@ -185,6 +187,7 @@ impl LendingNftCollateral {
 
   fn choose_specific_lending_offer(&mut self, nft_collection_id: NftCollection, offer_id: String, token_id: TokenId) -> bool {
     let initial_storage = U128(env::storage_usage() as u128);
+    assert!(self.get_balance_value(env::predecessor_account_id()).0 >= MINIMUM_LIMIT_BALANCE, "You don't have enought balance");
 
     let nft_collection_lending_offers = self.lending_offers.get(&nft_collection_id);
     let mut nft_collection_lending_offer_vec = self.lending_offers_vecs.get(&nft_collection_id).unwrap();
@@ -201,6 +204,7 @@ impl LendingNftCollateral {
 
   fn choose_specific_borrowing_offer(&mut self, nft_collection_id: NftCollection, offer_id: String) -> bool {
     let initial_storage = U128(env::storage_usage() as u128);
+    assert!(self.get_balance_value(env::predecessor_account_id()).0 >= MINIMUM_LIMIT_BALANCE, "You don't have enought balance");
 
     let nft_collection_borrowing_offers = self.borrowing_offers.get(&nft_collection_id);
     let mut nft_collection_borrowing_offer_vec = self.borrowing_offers_vecs.get(&nft_collection_id).unwrap();
@@ -219,6 +223,7 @@ impl LendingNftCollateral {
   #[payable]
   fn post_lending_offer(&mut self, nft_collection_id: AccountId, value_offered: U128) -> bool {
     let initial_storage = U128(env::storage_usage() as u128);
+    assert!(self.get_balance_value(env::predecessor_account_id()).0 >= MINIMUM_LIMIT_BALANCE, "You don't have enought balance");
 
     let mut lending_offers_vec = self.get_lending_offers_vec_from_nft_collection(nft_collection_id.clone());
     assert!(lending_offers_vec.len() < self.lending_offers_quantity_limit, "There are too many offers already");
@@ -253,6 +258,7 @@ impl LendingNftCollateral {
   #[payable]
   fn post_borrowing_offer(&mut self, nft_collection_id: NftCollection, value_offered: U128, collateral_nft: TokenId, nft_owner_id: AccountId) -> bool {
     let initial_storage = U128(env::storage_usage() as u128);
+    assert!(self.get_balance_value(env::predecessor_account_id()).0 >= MINIMUM_LIMIT_BALANCE, "You don't have enought balance");
 
     let mut borrowing_offers_vec = self.get_borrowing_offers_vec_from_nft_collection(nft_collection_id.clone());
     assert!(borrowing_offers_vec.len() < self.borrowing_offers_quantity_limit, "There are too many offers already");
@@ -278,9 +284,9 @@ impl LendingNftCollateral {
       self.borrowing_offers.insert(&nft_collection_id.clone(), &offer_map);
       self.current_borrowing_offer_id.insert(&nft_collection_id.clone(), &(offer_id + 1));
 
+      self.reduce_and_withdraw_balance(U128(env::attached_deposit()));
       let final_storage = U128(env::storage_usage() as u128);
       self.set_storage(initial_storage, final_storage);
-
       true
     }
   }
@@ -379,6 +385,8 @@ mod tests {
       .attached_deposit(MINT_STORAGE_COST)
       .predecessor_account_id(accounts(0))
       .build());
+    
+    contract.increase_balance(U128(MINT_STORAGE_COST*10000));
 
     let nft_collection_id = "nft_collection_test".to_string();
     let mut vector_id = nft_collection_id.clone();
@@ -413,6 +421,8 @@ mod tests {
       .predecessor_account_id(accounts(0))
       .build());
 
+    contract.increase_balance(U128(MINT_STORAGE_COST*10000));
+
     let nft_collection_id = "nft_collection_test".to_string();
     let mut vector_id = nft_collection_id.clone();
     vector_id.push_str("borrowing");
@@ -446,6 +456,8 @@ mod tests {
       .predecessor_account_id(accounts(0))
       .build());
 
+    contract.increase_balance(U128(MINT_STORAGE_COST*10000));
+
     let nft_collection_id = "nft_collection_test".to_string();
     let mut vector_id = nft_collection_id.clone();
     vector_id.push_str("lending");
@@ -478,6 +490,7 @@ mod tests {
       .predecessor_account_id(accounts(0))
       .build());
 
+    contract.increase_balance(U128(MINT_STORAGE_COST*10000));
     let nft_collection_id = "nft_collection_test".to_string();
     let mut vector_id = nft_collection_id.clone();
     vector_id.push_str("borrowing");
@@ -508,7 +521,7 @@ mod tests {
       .attached_deposit(MINT_STORAGE_COST)
       .predecessor_account_id(accounts(0))
       .build());
-    contract.deposit_balance(U128(MINT_STORAGE_COST*10000));
+    contract.increase_balance(U128(MINT_STORAGE_COST*10000));
     let nft_collection_id = "nft_collection_test".to_string();
     contract.insert_new_nft_collection(nft_collection_id.clone(), U128(1));
     let success = contract.post_lending_offer(nft_collection_id.clone(), U128(10));
@@ -530,9 +543,10 @@ mod tests {
         .predecessor_account_id(accounts(0))
         .build());
 
-      contract.deposit_balance(U128(MINT_STORAGE_COST*10000));
+      contract.increase_balance(U128(MINT_STORAGE_COST*10000));
       let nft_collection_id = "nft_collection_test".to_string();
       contract.insert_new_nft_collection(nft_collection_id.clone(), U128(1));
+
       let success = contract.post_borrowing_offer(nft_collection_id.clone(), U128(10), "token_id".to_string(), accounts(0).into());
       assert_eq!(success, true);
       assert_eq!(contract.borrowing_offers_vecs.get(&nft_collection_id).unwrap().get(0).unwrap().value, 10);

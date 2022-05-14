@@ -132,7 +132,7 @@ impl LendingNftCollateral {
     if final_storage.0 > initial_storage.0 {
       self.reduce_balance(U128((final_storage.0 - initial_storage.0) * env::storage_byte_cost()));
     } else {
-      self.deposit_balance(U128((initial_storage.0 - final_storage.0) * env::storage_byte_cost()));
+      self.increase_balance(U128((initial_storage.0 - final_storage.0) * env::storage_byte_cost()));
     }
   }
 }

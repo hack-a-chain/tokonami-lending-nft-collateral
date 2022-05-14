@@ -30,8 +30,9 @@ impl LendingNftCollateral {
             //needs to find a way to receive money
             self.transfer_warranty_loan(token_id, sender_id);
         } else if parsed_message["function"].as_str().unwrap() == "deposit_balance" {
-            //needs to find a way to receive money
-            self.deposit_balance(U128(parsed_message["args"]["value"].as_str().unwrap().parse().unwrap()));
+            self.deposit_balance();
+        } else if parsed_message["function"].as_str().unwrap() == "choose_specific_lending_offer" {
+            self.choose_specific_lending_offer(parsed_message["args"]["nft_collection_id"].as_str().unwrap().parse().unwrap(), parsed_message["args"]["offer_id"].as_str().unwrap().parse().unwrap(), token_id);
         } else {
             panic!("msg could not be parsed");
         }
