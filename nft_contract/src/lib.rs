@@ -21,12 +21,12 @@ use near_contract_standards::non_fungible_token::metadata::{
 use near_contract_standards::non_fungible_token::{Token, TokenId};
 use near_contract_standards::non_fungible_token::NonFungibleToken;
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
-use near_sdk::collections::LazyOption;
+use near_sdk::collections::{LazyOption, UnorderedSet};
 use near_sdk::json_types::ValidAccountId;
 use near_sdk::{
     env, near_bindgen, AccountId, BorshStorageKey, PanicOnDefault, Promise, PromiseOrValue,
 };
-use near_contract_standards::non_fungible_token::events::{NftBurn};
+use near_contract_standards::non_fungible_token::events::NftBurn;
 
 #[near_bindgen]
 #[derive(BorshDeserialize, BorshSerialize, PanicOnDefault)]
@@ -44,6 +44,7 @@ enum StorageKey {
     TokenMetadata,
     Enumeration,
     Approval,
+    Royalty
 }
 
 #[near_bindgen]
@@ -76,6 +77,7 @@ impl Contract {
                 Some(StorageKey::TokenMetadata),
                 Some(StorageKey::Enumeration),
                 Some(StorageKey::Approval),
+                Some(StorageKey::Royalty),
             ),
             metadata: LazyOption::new(StorageKey::Metadata, Some(&metadata)),
         }
@@ -93,17 +95,17 @@ impl Contract {
     pub fn nft_burn(
         &mut self,
         token_id: TokenId,
-        owner_id: ValidAccountId,
+        owner_id: AccountId,
     ) -> bool{
         assert!(env::predecessor_account_id() == self.tokens.owner_id, "Only predecessor account id can burn");
-        self.tokens.owner_by_id.remove(&token_id);
-        self.tokens.token_metadata_by_id.remove(&token_id);
-        self.tokens.tokens_per_owner.get(&owner_id).remove(&token_id);
-        self.tokens.approvals_by_id.remove(&token_id);
-        self.tokens.next_approval_id_by_id.remove(&token_id);
-        self.tokens.royalties_by_id.remove(&token_id);
+        // self.tokens.owner_by_id.remove(&token_id);
+        // self.tokens.token_metadata_by_id.unwrap().remove(&token_id);
+        // self.tokens.tokens_per_owner.unwrap().get(&owner_id).unwrap().remove(&token_id);
+        // self.tokens.approvals_by_id.unwrap().remove(&token_id);
+        // self.tokens.next_approval_id_by_id.unwrap().remove(&token_id);
+        // self.tokens.royalties_by_id.unwrap().remove(&token_id);
 
-        NftBurn { owner_id: &owner, token_ids: &[&token_id], memo: None, authorized_id: None }.emit();
+        NftBurn { owner_id: &owner_id, token_ids: &[&token_id], memo: None, authorized_id: None }.emit();
         true
     }
 
@@ -115,7 +117,11 @@ impl Contract {
         token_metadata: TokenMetadata,
     ) -> Token {
         assert!(env::predecessor_account_id() == self.tokens.owner_id, "Only predecessor account id can mint");
-        self.tokens.mint(token_id, receiver_id, Some(token_metadata))
+        let mint_cost = 0;
+        let mut perpetual_royalties = HashMap::new();
+        perpetual_royalties.insert(receiver_id.to_string(), 10);
+        self.tokens.internal_mint(token_id.clone(), receiver_id.clone(), Some(token_metadata.clone()), mint_cost, perpetual_royalties);
+        self.tokens.mint(token_id.clone(), receiver_id.clone(), Some(token_metadata.clone()))
     }
 }
 
@@ -163,7 +169,6 @@ mod tests {
             extra: None,
             reference: None,
             reference_hash: None,
-            loan_id: None,
             loan_value: None,
             loan_expiration_time: None,
             warranty_collection: None,
@@ -205,7 +210,7 @@ mod tests {
         assert_eq!(token.token_id, token_id);
         assert_eq!(token.owner_id, accounts(0).to_string());
         assert_eq!(token.metadata.unwrap(), sample_token_metadata());
-        assert_eq!(token.approved_account_ids.unwrap(), HashMap::new());
+        // assert_eq!(token.approved_account_ids.unwrap(), HashMap::new());
     }
 
     #[test]
