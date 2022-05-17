@@ -12,6 +12,9 @@ crate-type = ["cdylib", "rlib"]
 near-contract-standards = { path = "../contract_standards" }
 near-sdk = "3.1.0"
 
+[dev-dependencies]
+near-sdk-sim = "3.1.0"
+
 [profile.release]
 opt-level = "s"           # Optimize for small code size
 lto = true                # Optimize for small code size

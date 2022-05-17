@@ -4,14 +4,14 @@ pub use near_sdk::serde_json::{json, value::Value};
 pub use near_sdk_sim::{call, view, deploy, init_simulator, to_yocto, UserAccount, 
     ContractAccount, DEFAULT_GAS, ViewResult, ExecutionResult};
 pub use near_sdk::AccountId;
+use near_contract_standards::non_fungible_token::metadata::NFTContractMetadata;
 
 near_sdk_sim::lazy_static_include::lazy_static_include_bytes! {
-    LENDING_CONTRACT => "./target/wasm32-unknown-unknown/release/contract.wasm",
+    LENDING_CONTRACT => "../lending_contract/target/wasm32-unknown-unknown/release/contract.wasm",
     NFT_CONTRACT => "../nft_contract/target/wasm32-unknown-unknown/release/non_fungible_token.wasm"
 }
 
 use std::convert::TryFrom;
-pub use rand::Rng;
 
 
 const NFT_FEE: u128 = 4_000;
@@ -39,8 +39,8 @@ fn simulate_full_flow() {
 
     let root = init_simulator(Some(genesis));
 
-    let owner_account_lending = root.create_user("owner_account".to_string(), to_yocto("100"));
-    let owner_account_nft_collection = root.create_user("owner_account".to_string(), to_yocto("100"));
+    let owner_account_lending = root.create_user("owner_account1".to_string(), to_yocto("100"));
+    let owner_account_nft_collection = root.create_user("owner_account2".to_string(), to_yocto("100"));
 
    //deploy contracts
     let lending_account = root.deploy(
@@ -60,4 +60,82 @@ fn simulate_full_flow() {
         "receipt_contract".to_string(),
         to_yocto("100")
     );
+
+    let nft_collection_account = root.deploy(
+        &NFT_CONTRACT,
+        "nft_collection_contract".to_string(),
+        to_yocto("100")
+    );
+
+        //initialize contracts
+    // owner_account_lending.call(
+    //     lending_account.account_id(), 
+    //     "new", 
+    //     &json!({
+    //         "owner_id": owner_account_lending.account_id(), 
+    //         "note_address": nft_note_account.account_id(), 
+    //         "receipt_address": nft_receit_account.account_id()
+    //     }).to_string().into_bytes(),
+    //     GAS_ATTACHMENT, 
+    //     0
+    // ).assert_success();
+
+    owner_account_lending.call(
+        nft_note_account.account_id(), 
+        "new", 
+        &json!({
+            "owner_id": lending_account.account_id(), 
+            "metadata": NFTContractMetadata {
+                spec: "nft-1.0.0".to_string(),
+                name: "Example NEAR non-fungible token".to_string(),
+                symbol: "EXAMPLE".to_string(),
+                icon: Some("EXAMPLE".to_string()),
+                base_uri: None,
+                reference: None,
+                reference_hash: None,
+            }
+        }).to_string().into_bytes(),
+        GAS_ATTACHMENT, 
+        0
+    ).assert_success();
+
+
+    owner_account_lending.call(
+        nft_receit_account.account_id(), 
+        "new", 
+        &json!({
+            "owner_id": lending_account.account_id(), 
+            "metadata": NFTContractMetadata {
+                spec: "nft-1.0.0".to_string(),
+                name: "Example NEAR non-fungible token".to_string(),
+                symbol: "EXAMPLE".to_string(),
+                icon: Some("EXAMPLE".to_string()),
+                base_uri: None,
+                reference: None,
+                reference_hash: None,
+            }
+        }).to_string().into_bytes(),
+        GAS_ATTACHMENT, 
+        0
+    ).assert_success();
+
+
+    owner_account_lending.call(
+        nft_collection_account.account_id(), 
+        "new", 
+        &json!({
+            "owner_id": lending_account.account_id(), 
+            "metadata": NFTContractMetadata {
+                spec: "nft-1.0.0".to_string(),
+                name: "Example NEAR non-fungible token".to_string(),
+                symbol: "EXAMPLE".to_string(),
+                icon: Some("EXAMPLE".to_string()),
+                base_uri: None,
+                reference: None,
+                reference_hash: None,
+            }
+        }).to_string().into_bytes(),
+        GAS_ATTACHMENT, 
+        0
+    ).assert_success();
 }
