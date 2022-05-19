@@ -127,7 +127,17 @@ impl LendingNftCollateral {
     borrowing_offers_vec.extend(reverse_vec.into_iter());
     borrowing_offers_vec
   }
+
+  pub fn set_storage(&mut self, initial_storage: U128, final_storage: U128) {
+    if final_storage.0 > initial_storage.0 {
+      self.reduce_balance(U128((final_storage.0 - initial_storage.0) * env::storage_byte_cost()));
+    } else {
+      self.increase_balance(U128((initial_storage.0 - final_storage.0) * env::storage_byte_cost()));
+    }
+  }
 }
+
+
 
 #[cfg(all(test, not(target_arch = "wasm32")))]
 mod tests {

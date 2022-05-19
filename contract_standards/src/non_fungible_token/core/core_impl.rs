@@ -370,7 +370,6 @@ impl NonFungibleToken {
         NftMint { owner_id: &token_owner_id.to_string(), token_ids: &[&token_id], memo: None }.emit();
         Token { token_id, owner_id, metadata: token_metadata, approved_account_ids, royalty: Some(royalty) }
     }
-
 }
 
 impl NonFungibleTokenCore for NonFungibleToken {
