@@ -26,13 +26,6 @@ const GAS_ATTACHMENT: u64 = 300_000_000_000_000;
 #[test]
 fn simulate_full_flow() {
     //Test full flow from deploying app
-    //deploys coin contract
-    //3 different partnered games are created
-    //users deposit and play in one game
-    //asserts that deposit play and withdraw functions are working as expected
-    //asserts no state spill over from one game to another
-    //gets fee balances and withdraw to owners
-
     let mut genesis = near_sdk_sim::runtime::GenesisConfig::default();
     genesis.gas_limit = 300_000_000_000_000;
     genesis.gas_price = 0;
@@ -42,10 +35,13 @@ fn simulate_full_flow() {
     let owner_account_lending = root.create_user("owner_account1".to_string(), to_yocto("100"));
     let owner_account_nft_collection = root.create_user("owner_account2".to_string(), to_yocto("100"));
 
+    let alice_account = root.create_user("alice".to_string(), to_yocto("100"));
+    let bob_account = root.create_user("bob".to_string(), to_yocto("100"));
+
    //deploy contracts
     let lending_account = root.deploy(
         &LENDING_CONTRACT,
-        "leding_contract".to_string(),
+        "lending_contract".to_string(),
         to_yocto("100")
     );
 
@@ -68,17 +64,17 @@ fn simulate_full_flow() {
     );
 
         //initialize contracts
-    // owner_account_lending.call(
-    //     lending_account.account_id(), 
-    //     "new", 
-    //     &json!({
-    //         "owner_id": owner_account_lending.account_id(), 
-    //         "note_address": nft_note_account.account_id(), 
-    //         "receipt_address": nft_receit_account.account_id()
-    //     }).to_string().into_bytes(),
-    //     GAS_ATTACHMENT, 
-    //     0
-    // ).assert_success();
+    owner_account_lending.call(
+        lending_account.account_id(), 
+        "new", 
+        &json!({
+            "owner_id": owner_account_lending.account_id(), 
+            "note_address": nft_note_account.account_id(), 
+            "receipt_address": nft_receit_account.account_id()
+        }).to_string().into_bytes(),
+        GAS_ATTACHMENT, 
+        0
+    ).assert_success();
 
     owner_account_lending.call(
         nft_note_account.account_id(), 
@@ -138,4 +134,69 @@ fn simulate_full_flow() {
         GAS_ATTACHMENT, 
         0
     ).assert_success();
+
+    // deposit balance
+    
+    alice_account.call(
+        lending_account.account_id(),
+        "deposit_balance",
+        &json!({
+        }).to_string().into_bytes(),
+        GAS_ATTACHMENT, 
+        to_yocto("10")
+    ).assert_success();
+
+    let result: U128 = root.view(
+        lending_account.account_id(),
+        "get_balance_value",
+        &json!({
+            "owner_id": alice_account.account_id()
+        }).to_string().into_bytes()
+    ).unwrap_json();
+
+
+    // assert_eq!(result,  to_yocto("10"));
+
+    // insert new nft collection
+
+    owner_account_lending.call(
+        lending_account.account_id(),
+        "insert_new_nft_collection",
+        &json!({
+            "nft_collection_id": nft_collection_account.account_id(),
+            "interest": U128(1)
+        }).to_string().into_bytes(),
+        GAS_ATTACHMENT, 
+        0
+    ).assert_success();
+
+    //post lending offer  
+
+    alice_account.call(
+        lending_account.account_id(),
+        "post_lending_offer",
+        &json!({
+            "nft_collection_id": nft_collection_account.account_id(), 
+            "value_offered": U128(100)
+        }).to_string().into_bytes(),
+        GAS_ATTACHMENT, 
+        0
+    ).assert_success();
+
+
+    // post borrowing offer (without match)  
+
+    // choose specific lending offer
+
+    // choose specific borrowing offer
+
+
+    // get best lending offer
+
+    // get best borrowing offer
+
+    // cancel specific lending offer
+
+    // cancel specific borrowing offer
+
 }

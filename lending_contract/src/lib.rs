@@ -107,7 +107,7 @@ pub struct Loan {
 impl LendingNftCollateral {
 
   #[init]
-  fn new(owner_id: AccountId, note_address: AccountId, receipt_address: AccountId) -> Self {
+  pub fn new(owner_id: AccountId, note_address: AccountId, receipt_address: AccountId) -> Self {
     Self {
       token_id_counter: 0,
       // mudar depois: colocar validação no código
@@ -130,20 +130,20 @@ impl LendingNftCollateral {
     }
   }
 
-  fn get_best_lending_offer(&mut self, nft_collection_id: NftCollection) -> Option<Offer> 
+  pub fn get_best_lending_offer(&mut self, nft_collection_id: NftCollection) -> Option<Offer> 
   {
     let lending_offer_vec = self.get_lending_offers_vec_from_nft_collection(nft_collection_id.to_string());
     let best_offer_index = if lending_offer_vec.len() == 0 {0} else {lending_offer_vec.len() - 1};
     lending_offer_vec.get(best_offer_index)
   }
 
-  fn get_best_borrowing_offer(&mut self, nft_collection_id: NftCollection) -> Option<Offer> {
+  pub fn get_best_borrowing_offer(&mut self, nft_collection_id: NftCollection) -> Option<Offer> {
     let borrowing_offer_vec = self.get_borrowing_offers_vec_from_nft_collection(nft_collection_id.to_string());
     let best_offer_index = if borrowing_offer_vec.len() == 0 {0} else {borrowing_offer_vec.len() - 1};
     borrowing_offer_vec.get(best_offer_index)
   }
 
-  fn cancel_specific_lending_offer(&mut self, offer_id: String, nft_collection_id: NftCollection) {
+  pub fn cancel_specific_lending_offer(&mut self, offer_id: String, nft_collection_id: NftCollection) {
     let initial_storage = U128(env::storage_usage() as u128);
     assert!(self.get_balance_value(env::predecessor_account_id()).0 >= MINIMUM_LIMIT_BALANCE, "You don't have enought balance");
     let nft_collection_lending_offers = self.lending_offers.get(&nft_collection_id);
@@ -158,7 +158,7 @@ impl LendingNftCollateral {
     self.set_storage(initial_storage, final_storage);
   }
 
-  fn cancel_specific_borrowing_offer(&mut self, offer_id: String, nft_collection_id: NftCollection) {
+  pub fn cancel_specific_borrowing_offer(&mut self, offer_id: String, nft_collection_id: NftCollection) {
     let initial_storage = U128(env::storage_usage() as u128);
     assert!(self.get_balance_value(env::predecessor_account_id()).0 >= MINIMUM_LIMIT_BALANCE, "You don't have enought balance");
 
@@ -185,7 +185,7 @@ impl LendingNftCollateral {
     self.set_storage(initial_storage, final_storage);
   }
 
-  fn choose_specific_lending_offer(&mut self, nft_collection_id: NftCollection, offer_id: String, token_id: TokenId) -> bool {
+  pub fn choose_specific_lending_offer(&mut self, nft_collection_id: NftCollection, offer_id: String, token_id: TokenId) -> bool {
     let initial_storage = U128(env::storage_usage() as u128);
     assert!(self.get_balance_value(env::predecessor_account_id()).0 >= MINIMUM_LIMIT_BALANCE, "You don't have enought balance");
 
@@ -202,7 +202,7 @@ impl LendingNftCollateral {
     true
   }
 
-  fn choose_specific_borrowing_offer(&mut self, nft_collection_id: NftCollection, offer_id: String) -> bool {
+  pub fn choose_specific_borrowing_offer(&mut self, nft_collection_id: NftCollection, offer_id: String) -> bool {
     let initial_storage = U128(env::storage_usage() as u128);
     assert!(self.get_balance_value(env::predecessor_account_id()).0 >= MINIMUM_LIMIT_BALANCE, "You don't have enought balance");
 
@@ -221,7 +221,7 @@ impl LendingNftCollateral {
   }
 
   #[payable]
-  fn post_lending_offer(&mut self, nft_collection_id: AccountId, value_offered: U128) -> bool {
+  pub fn post_lending_offer(&mut self, nft_collection_id: AccountId, value_offered: U128) -> bool {
     let initial_storage = U128(env::storage_usage() as u128);
     assert!(self.get_balance_value(env::predecessor_account_id()).0 >= MINIMUM_LIMIT_BALANCE, "You don't have enought balance");
 
@@ -256,7 +256,7 @@ impl LendingNftCollateral {
   }
 
   #[payable]
-  fn post_borrowing_offer(&mut self, nft_collection_id: NftCollection, value_offered: U128, collateral_nft: TokenId, nft_owner_id: AccountId) -> bool {
+  pub fn post_borrowing_offer(&mut self, nft_collection_id: NftCollection, value_offered: U128, collateral_nft: TokenId, nft_owner_id: AccountId) -> bool {
     let initial_storage = U128(env::storage_usage() as u128);
     assert!(self.get_balance_value(env::predecessor_account_id()).0 >= MINIMUM_LIMIT_BALANCE, "You don't have enought balance");
 

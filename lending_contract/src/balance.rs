@@ -2,6 +2,7 @@ use crate::*;
 use serde_json::Value;
 
 impl LendingNftCollateral {
+
   pub fn increase_balance(&mut self, value: U128) {
     let current_value = self.get_balance_value(env::predecessor_account_id());
     self.balances.insert(&env::predecessor_account_id(), &(current_value.0 + value.0));
@@ -11,7 +12,7 @@ impl LendingNftCollateral {
 #[near_bindgen]
 impl LendingNftCollateral {
 
-  pub fn get_balance_value(&mut self, owner_id: AccountId) -> U128 {
+  pub fn get_balance_value(&self, owner_id: AccountId) -> U128 {
     U128(self.balances.get(&owner_id).unwrap_or(0))
   }
 

@@ -32,9 +32,9 @@ impl LendingNftCollateral {
     self.borrowing_offers.insert(&nft_collection_id, &borrowing_offer_map);
   }
 
-  pub fn remove_nft_collection(&mut self, nft_collection_id: AccountId) {
-    self.nft_collections.remove(&nft_collection_id);
-  }
+  // pub fn remove_nft_collection(&mut self, nft_collection_id: AccountId) {
+  //   self.nft_collections.remove(&nft_collection_id);
+  // }
 }
 
 #[cfg(all(test, not(target_arch = "wasm32")))]
@@ -107,20 +107,20 @@ mod tests {
     assert_eq!(result, 10);
   }
 
-  #[test]
-  fn test_remove_nft_collection() {
-    let mut context = get_context(accounts(1));
-    testing_env!(context.build());
-    let mut contract = LendingNftCollateral::new(accounts(1).into(), accounts(2).into(), accounts(3).into());
+  // #[test]
+  // fn test_remove_nft_collection() {
+  //   let mut context = get_context(accounts(1));
+  //   testing_env!(context.build());
+  //   let mut contract = LendingNftCollateral::new(accounts(1).into(), accounts(2).into(), accounts(3).into());
 
-    testing_env!(context
-      .storage_usage(env::storage_usage())
-      .attached_deposit(MINT_STORAGE_COST)
-      .predecessor_account_id(accounts(0))
-      .build());
+  //   testing_env!(context
+  //     .storage_usage(env::storage_usage())
+  //     .attached_deposit(MINT_STORAGE_COST)
+  //     .predecessor_account_id(accounts(0))
+  //     .build());
 
-    contract.remove_nft_collection(accounts(1).to_string());
-    let result = contract.nft_collections.get(&accounts(1).to_string()).unwrap_or(0);
-    assert_eq!(result, 0);
-  }
+  //   contract.remove_nft_collection(accounts(1).to_string());
+  //   let result = contract.nft_collections.get(&accounts(1).to_string()).unwrap_or(0);
+  //   assert_eq!(result, 0);
+  // }
 }
