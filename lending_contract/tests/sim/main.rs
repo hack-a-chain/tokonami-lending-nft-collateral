@@ -5,6 +5,12 @@ pub use near_sdk_sim::{call, view, deploy, init_simulator, to_yocto, UserAccount
     ContractAccount, DEFAULT_GAS, ViewResult, ExecutionResult};
 pub use near_sdk::AccountId;
 use near_contract_standards::non_fungible_token::metadata::NFTContractMetadata;
+use near_contract_standards::non_fungible_token::{Token, TokenId};
+use near_sdk::serde::{Deserialize, Serialize};
+use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
+use near_contract_standards::non_fungible_token::NonFungibleToken;
+use near_sdk::collections::{LazyOption, LookupMap, UnorderedMap, UnorderedSet};
+
 
 near_sdk_sim::lazy_static_include::lazy_static_include_bytes! {
     LENDING_CONTRACT => "../lending_contract/target/wasm32-unknown-unknown/release/contract.wasm",
@@ -35,8 +41,12 @@ fn simulate_full_flow() {
     let owner_account_lending = root.create_user("owner_account1".to_string(), to_yocto("100"));
     let owner_account_nft_collection = root.create_user("owner_account2".to_string(), to_yocto("100"));
 
-    let alice_account = root.create_user("alice".to_string(), to_yocto("100"));
-    let bob_account = root.create_user("bob".to_string(), to_yocto("100"));
+    let rachel_account = root.create_user("rachel".to_string(), to_yocto("100"));
+    let monica_account = root.create_user("monica".to_string(), to_yocto("100"));
+    let phoebe_account = root.create_user("phoebe".to_string(), to_yocto("100"));
+    let chandler_account = root.create_user("chandler".to_string(), to_yocto("100"));
+    let joey_account = root.create_user("joey".to_string(), to_yocto("100"));
+    let ross_account = root.create_user("ross".to_string(), to_yocto("100"));
 
    //deploy contracts
     let lending_account = root.deploy(
@@ -137,7 +147,7 @@ fn simulate_full_flow() {
 
     // deposit balance
     
-    alice_account.call(
+    rachel_account.call(
         lending_account.account_id(),
         "deposit_balance",
         &json!({
@@ -146,16 +156,69 @@ fn simulate_full_flow() {
         to_yocto("10")
     ).assert_success();
 
-    let result: U128 = root.view(
+    monica_account.call(
+        lending_account.account_id(),
+        "deposit_balance",
+        &json!({
+        }).to_string().into_bytes(),
+        GAS_ATTACHMENT, 
+        to_yocto("10")
+    ).assert_success();
+
+    phoebe_account.call(
+        lending_account.account_id(),
+        "deposit_balance",
+        &json!({
+        }).to_string().into_bytes(),
+        GAS_ATTACHMENT, 
+        to_yocto("10")
+    ).assert_success();
+
+    chandler_account.call(
+        lending_account.account_id(),
+        "deposit_balance",
+        &json!({
+        }).to_string().into_bytes(),
+        GAS_ATTACHMENT, 
+        to_yocto("9")
+    ).assert_success();
+
+    ross_account.call(
+        lending_account.account_id(),
+        "deposit_balance",
+        &json!({
+        }).to_string().into_bytes(),
+        GAS_ATTACHMENT, 
+        to_yocto("9")
+    ).assert_success();
+
+    joey_account.call(
+        lending_account.account_id(),
+        "deposit_balance",
+        &json!({
+        }).to_string().into_bytes(),
+        GAS_ATTACHMENT, 
+        to_yocto("9")
+    ).assert_success();
+
+    let result_rachel: U128 = root.view(
         lending_account.account_id(),
         "get_balance_value",
         &json!({
-            "owner_id": alice_account.account_id()
+            "owner_id": rachel_account.account_id()
         }).to_string().into_bytes()
     ).unwrap_json();
 
+    let result_chandler: U128 = root.view(
+        lending_account.account_id(),
+        "get_balance_value",
+        &json!({
+            "owner_id": chandler_account.account_id()
+        }).to_string().into_bytes()
+    ).unwrap_json();
 
-    // assert_eq!(result,  to_yocto("10"));
+    assert_eq!(result_rachel,  U128(to_yocto("10")));
+    assert_eq!(result_chandler,  U128(to_yocto("9")));
 
     // insert new nft collection
 
@@ -170,9 +233,20 @@ fn simulate_full_flow() {
         0
     ).assert_success();
 
+    // offer type
+
+    #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default, BorshDeserialize, BorshSerialize)]
+    #[serde(crate = "near_sdk::serde")]
+    pub struct Offer {
+        pub offer_id: String,
+        pub owner_id: AccountId,
+        pub value: u128,
+        pub token_id: Option<TokenId>
+      }
+
     //post lending offer  
 
-    alice_account.call(
+    rachel_account.call(
         lending_account.account_id(),
         "post_lending_offer",
         &json!({
@@ -183,10 +257,137 @@ fn simulate_full_flow() {
         0
     ).assert_success();
 
+    monica_account.call(
+        lending_account.account_id(),
+        "post_lending_offer",
+        &json!({
+            "nft_collection_id": nft_collection_account.account_id(), 
+            "value_offered": U128(110)
+        }).to_string().into_bytes(),
+        GAS_ATTACHMENT, 
+        0
+    ).assert_success();
 
-    // post borrowing offer (without match)  
+    let best_lending_offer1: Option<Offer> = root.call(
+        lending_account.account_id(),
+        "get_best_lending_offer",
+        &json!({
+            "nft_collection_id": nft_collection_account.account_id()
+        }).to_string().into_bytes(),
+        GAS_ATTACHMENT, 
+        0
+    ).unwrap_json();
+
+    assert_eq!(best_lending_offer1.unwrap().value,  110);
+
+    phoebe_account.call(
+        lending_account.account_id(),
+        "post_lending_offer",
+        &json!({
+            "nft_collection_id": nft_collection_account.account_id(), 
+            "value_offered": U128(120)
+        }).to_string().into_bytes(),
+        GAS_ATTACHMENT, 
+        0
+    ).assert_success();
+
+      let best_lending_offer2: Option<Offer> = root.call(
+        lending_account.account_id(),
+        "get_best_lending_offer",
+        &json!({
+            "nft_collection_id": nft_collection_account.account_id()
+        }).to_string().into_bytes(),
+        GAS_ATTACHMENT, 
+        0
+    ).unwrap_json();
+
+    assert_eq!(best_lending_offer2.unwrap().value,  120);
+
+    // post borrowing offer
+
+    // without match
+
+    chandler_account.call(
+        lending_account.account_id(),
+        "post_borrowing_offer",
+        &json!({
+            "nft_collection_id": nft_collection_account.account_id(), 
+            "value_offered": U128(150),
+            "collateral_nft": "token_id".to_string(),
+            "nft_owner_id": monica_account.account_id(),
+        }).to_string().into_bytes(),
+        GAS_ATTACHMENT, 
+        0
+    ).assert_success();
+
+    joey_account.call(
+        lending_account.account_id(),
+        "post_borrowing_offer",
+        &json!({
+            "nft_collection_id": nft_collection_account.account_id(), 
+            "value_offered": U128(160),
+            "collateral_nft": "token_id".to_string(),
+            "nft_owner_id": monica_account.account_id(),
+        }).to_string().into_bytes(),
+        GAS_ATTACHMENT, 
+        0
+    ).assert_success();
+
+    let best_borrowing_offer1: Option<Offer> = root.call(
+        lending_account.account_id(),
+        "get_best_borrowing_offer",
+        &json!({
+            "nft_collection_id": nft_collection_account.account_id()
+        }).to_string().into_bytes(),
+        GAS_ATTACHMENT, 
+        0
+    ).unwrap_json();
+
+    assert_eq!(best_borrowing_offer1.unwrap().value,  150);
+
+    
+    //with match
+
+    // ross_account.call(
+    //     lending_account.account_id(),
+    //     "post_borrowing_offer",
+    //     &json!({
+    //         "nft_collection_id": nft_collection_account.account_id(), 
+    //         "value_offered": U128(100),
+    //         "collateral_nft": "token_id".to_string(),
+    //         "nft_owner_id": ross_account.account_id(),
+    //     }).to_string().into_bytes(),
+    //     GAS_ATTACHMENT, 
+    //     0
+    // ).assert_success();
+
+    // let best_borrowing_offer2: Option<Offer> = root.call(
+    //     lending_account.account_id(),
+    //     "get_best_borrowing_offer",
+    //     &json!({
+    //         "nft_collection_id": nft_collection_account.account_id()
+    //     }).to_string().into_bytes(),
+    //     GAS_ATTACHMENT, 
+    //     0
+    // ).unwrap_json();
+
+    // assert_eq!(best_borrowing_offer2.unwrap().value,  150);
+
+    // let best_lending_offer3: Option<Offer> = root.call(
+    //     lending_account.account_id(),
+    //     "get_best_lending_offer",
+    //     &json!({
+    //         "nft_collection_id": nft_collection_account.account_id()
+    //     }).to_string().into_bytes(),
+    //     GAS_ATTACHMENT, 
+    //     0
+    // ).unwrap_json();
+
+    // assert_eq!(best_lending_offer3.unwrap().value,  110);
 
     // choose specific lending offer
+
+
 
     // choose specific borrowing offer
 

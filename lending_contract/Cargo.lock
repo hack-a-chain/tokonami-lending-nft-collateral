@@ -396,6 +396,8 @@ dependencies = [
  "near-contract-standards",
  "near-sdk",
  "near-sdk-sim",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
